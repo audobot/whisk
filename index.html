@@ -794,7 +794,10 @@
 
             } catch (err) {
                 console.error('Import error:', err);
-                statusEl.textContent = 'Could not fetch that URL. The site may block external requests.';
+                const msg = err.message === 'All proxies failed'
+                    ? 'All fetch attempts failed â the site may aggressively block scrapers. Try copying the URL from the recipe page directly.'
+                    : 'Something went wrong fetching that URL. Check it\'s a valid recipe page.';
+                statusEl.textContent = msg;
                 statusEl.className = 'import-status error';
             } finally {
                 btn.disabled = false;
@@ -802,12 +805,33 @@
         };
 
         async function fetchRecipeFromUrl(url) {
-            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-            const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(15000) });
-            if (!res.ok) throw new Error('Proxy failed: ' + res.status);
-            const data = await res.json();
-            const html = data.contents;
-            if (!html) throw new Error('No content received');
+            // Multiple proxies tried in sequence â different sites block different ones
+            const proxies = [
+                {
+                    build: u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+                    extract: async r => r.text()
+                },
+                {
+                    build: u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
+                    extract: async r => { const d = await r.json(); return d.contents; }
+                },
+                {
+                    build: u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+                    extract: async r => r.text()
+                }
+            ];
+
+            let html = null;
+            for (const proxy of proxies) {
+                try {
+                    const res = await fetch(proxy.build(url), { signal: AbortSignal.timeout(12000) });
+                    if (!res.ok) continue;
+                    const content = await proxy.extract(res);
+                    if (content && content.length > 200) { html = content; break; }
+                } catch (e) { continue; }
+            }
+
+            if (!html) throw new Error('All proxies failed');
 
             const parser = new DOMParser();
             const doc = parser.parseFromString(html, 'text/html');
