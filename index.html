@@ -221,6 +221,27 @@
         }
         .source-badge:hover { border-color: var(--black); color: var(--black); }
 
+        /* Category filter chips */
+        .category-filters {
+            display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem;
+        }
+        .cat-chip {
+            padding: 0.35rem 0.9rem; border-radius: 20px;
+            border: 1px solid var(--light-grey); background: var(--white);
+            font-size: 0.82rem; cursor: pointer; transition: all 0.2s;
+            font-family: var(--font-body); color: var(--mid-grey);
+        }
+        .cat-chip:hover { border-color: var(--dark-grey); color: var(--dark-grey); }
+        .cat-chip.active { background: var(--black); color: var(--white); border-color: var(--black); }
+
+        /* Category badge on card */
+        .category-badge {
+            display: inline-block; font-size: 0.7rem; font-weight: 600;
+            padding: 0.15rem 0.55rem; border-radius: 12px;
+            background: var(--light-grey); color: var(--mid-grey);
+            margin-bottom: 0.5rem;
+        }
+
         .recipe-actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
         .btn-small { padding: 0.5rem 1rem; font-size: 0.85rem; border-radius: 8px; }
 
@@ -395,6 +416,9 @@
                 </div>
             </div>
 
+            <!-- Category filter chips -->
+            <div class="category-filters" id="categoryFilters"></div>
+
             <div class="recipes-grid" id="recipesGrid"></div>
 
             <div class="empty-state" id="emptyState" style="display:none;">
@@ -450,6 +474,20 @@
                     </div>
                 </div>
 
+                <div class="form-group">
+                    <label for="recipeCategory">Category</label>
+                    <select id="recipeCategory" style="width:100%;padding:0.875rem 1rem;border:1px solid var(--light-grey);border-radius:8px;font-family:var(--font-body);font-size:1rem;background:var(--white);color:var(--black);transition:all 0.3s var(--ease-smooth);">
+                        <option value="">Uncategorised</option>
+                        <option value="Breakfast">Breakfast</option>
+                        <option value="Lunch">Lunch</option>
+                        <option value="Dinner">Dinner</option>
+                        <option value="Dessert">Dessert</option>
+                        <option value="Snacks">Snacks</option>
+                        <option value="Drinks">Drinks</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
                 <div style="display:flex;gap:1rem;margin-top:2rem;">
                     <button type="submit" class="btn btn-primary" style="flex:1;">Save Recipe</button>
                     <button type="button" class="btn btn-secondary" onclick="closeRecipeModal()">Cancel</button>
@@ -503,6 +541,9 @@
         let editingRecipeId = null;
         let deferredPrompt;
         let unsubscribeRecipes = null;
+        let activeCategory = 'All';
+
+        const CATEGORIES = ['All', 'Breakfast', 'Lunch', 'Dinner', 'Dessert', 'Snacks', 'Drinks', 'Other'];
 
         // ── Auth ──────────────────────────────────────────────────────────────
         window.signInWithGoogle = async function() {
@@ -552,7 +593,8 @@
             const q = query(recipesRef, orderBy('createdAt', 'desc'));
             unsubscribeRecipes = onSnapshot(q, (snapshot) => {
                 recipes = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-                renderRecipes();
+                renderCategoryChips();
+                applyFilters();
             }, (err) => { console.error('Firestore error:', err); });
         }
 
@@ -561,89 +603,33 @@
             await setDoc(ref, recipe);
         }
 
-        async function deleteRecipeFromFirestore(id) {
-            await deleteDoc(doc(db, 'users', currentUser.uid, 'recipes', id));
+        async function deleteReFilters');
+            if (!container) return;
+            // Only show categories that have recipes (plus 'All')
+            const usedCats = new Set(recipes.map(r => r.category || '').filter(Boolean));
+            const visible = CATEGORIES.filter(c => c === 'All' || usedCats.has(c));
+            if (visible.length <= 1) { container.innerHTML = ''; return; }
+            container.innerHTML = visible.map(cat => `
+                <button class="cat-chip${activeCategory === cat ? ' active' : ''}"
+                        onclick="setCategory('${cat}')">${cat}</button>
+            `).join('');
         }
 
-        // ── Event listeners ───────────────────────────────────────────────────
-        function setupEventListeners() {
-            const addBtn = document.getElementById('addRecipeBtn');
-            if (addBtn && !addBtn._listenerAdded) {
-                addBtn.addEventListener('click', openAddRecipe);
-                addBtn._listenerAdded = true;
-            }
-            const form = document.getElementById('recipeForm');
-            if (form && !form._listenerAdded) {
-                form.addEventListener('submit', saveRecipe);
-                form._listenerAdded = true;
-            }
-            const search = document.getElementById('searchInput');
-            if (search && !search._listenerAdded) {
-                search.addEventListener('input', handleSearch);
-                search._listenerAdded = true;
-            }
-            const importInput = document.getElementById('importUrlInput');
-            if (importInput && !importInput._listenerAdded) {
-                importInput.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') { e.preventDefault(); importFromUrl(); }
-                });
-                importInput._listenerAdded = true;
-            }
-        }
-
-        // ── Recipe modal ──────────────────────────────────────────────────────
-        window.openAddRecipe = function() {
-            editingRecipeId = null;
-            document.getElementById('modalTitle').textContent = 'Add Recipe';
-            document.getElementById('recipeForm').reset();
-            document.getElementById('recipeId').value = '';
-            document.getElementById('recipeSourceUrl').value = '';
-            document.getElementById('imagePreviewBox').style.display = 'none';
-            document.getElementById('recipeModal').classList.add('active');
+        window.setCategory = function(cat) {
+            activeCategory = cat;
+            renderCategoryChips();
+            applyFilters();
         };
 
-        window.closeRecipeModal = function() {
-            document.getElementById('recipeModal').classList.remove('active');
-        };
-
-        window.closeViewModal = function() {
-            document.getElementById('viewModal').classList.remove('active');
-        };
-
-        window.updateImagePreview = function(url) {
-            const box = document.getElementById('imagePreviewBox');
-            const img = document.getElementById('imagePreviewImg');
-            if (url && url.startsWith('http')) {
-                img.src = url;
-                box.style.display = 'block';
-                img.onerror = () => { box.style.display = 'none'; };
-            } else {
-                box.style.display = 'none';
-            }
-        };
-
-        async function saveRecipe(e) {
-            e.preventDefault();
-            const isEditing = !!editingRecipeId;
-            const existingRecipe = isEditing ? recipes.find(r => r.id === editingRecipeId) : null;
-            const recipe = {
-                id: editingRecipeId || Date.now().toString(),
-                name: document.getElementById('recipeName').value,
-                prepTime: document.getElementById('prepTime').value,
-                servings: document.getElementById('servings').value,
-                ingredients: document.getElementById('ingredients').value,
-                instructions: document.getElementById('instructions').value,
-                imageUrl: document.getElementById('recipeImageUrl').value || null,
-                sourceUrl: document.getElementById('recipeSourceUrl').value || null,
-                createdAt: isEditing && existingRecipe ? existingRecipe.createdAt : new Date().toISOString()
-            };
-            try {
-                await saveRecipeToFirestore(recipe);
-                closeRecipeModal();
-            } catch (err) {
-                console.error('Error saving recipe:', err);
-                alert('Error saving recipe: ' + err.message);
-            }
+        function applyFilters() {
+            const q = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
+            let filtered = activeCategory === 'All' ? recipes
+                : recipes.filter(r => (r.category || '') === activeCategory);
+            if (q) filtered = filtered.filter(r =>
+                r.name.toLowerCase().includes(q) ||
+                (r.ingredients || '').toLowerCase().includes(q)
+            );
+            renderRecipes(filtered);
         }
 
         // ── Render ────────────────────────────────────────────────────────────
@@ -669,10 +655,11 @@
                                  onerror="this.parentElement.style.display='none'">
                         </div>
                     ` : ''}
+                    ${recipe.category ? `<span class="category-badge">${esc(recipe.category)}</span>` : ''}
                     <h3>${esc(recipe.name)}</h3>
                     ${recipe.sourceUrl ? `
                         <a class="source-badge" href="${esc(recipe.sourceUrl)}" target="_blank" rel="noopener"
-                           onclick="event.stopPropagation()">ð Source</a>
+                           onclick="event.stopPropagation()">🔗 Source</a>
                     ` : ''}
                     <div class="recipe-meta">
                         ${recipe.prepTime ? `<span>⏱️ ${esc(recipe.prepTime)} min</span>` : ''}
@@ -731,6 +718,7 @@
             document.getElementById('ingredients').value = recipe.ingredients;
             document.getElementById('instructions').value = recipe.instructions;
             document.getElementById('recipeImageUrl').value = recipe.imageUrl || '';
+            document.getElementById('recipeCategory').value = recipe.category || '';
             updateImagePreview(recipe.imageUrl || '');
             document.getElementById('recipeModal').classList.add('active');
         };
@@ -741,15 +729,8 @@
             catch (err) { alert('Error deleting recipe: ' + err.message); }
         };
 
-        function handleSearch(e) {
-            const q = e.target.value.toLowerCase().trim();
-            if (!q) { renderRecipes(); return; }
-            const filtered = recipes.filter(r =>
-                r.name.toLowerCase().includes(q) ||
-                r.ingredients.toLowerCase().includes(q) ||
-                r.instructions.toLowerCase().includes(q)
-            );
-            renderRecipes(filtered);
+        function handleSearch() {
+            applyFilters();
         }
 
         // ── URL Import ────────────────────────────────────────────────────────
@@ -805,7 +786,7 @@
         };
 
         async function fetchRecipeFromUrl(url) {
-            // Multiple proxies tried in sequence — different sites block different ones
+            // Multiple proxies tried in sequence ℔ different sites block different ones
             const proxies = [
                 {
                     build: u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
@@ -836,7 +817,7 @@
             const parser = new DOMParser();
             const doc = parser.parseFromString(html, 'text/html');
 
-            // Try all JSON-LD script blocks
+            // Try all JSON-LD script blocks (use *=  so variant types like 'application/ld+json; charset=utf-8' still match)
             const scripts = doc.querySelectorAll('script[type*="ld+json"]');
             for (const script of scripts) {
                 try {
@@ -845,46 +826,12 @@
                     if (schemaRecipe) return parseSchemaRecipe(schemaRecipe, doc);
                 } catch (e) { /* skip malformed */ }
             }
-            // Fallback: microdata — e.g. itemtype="https://schema.org/Recipe"
+
+            // Fallback: microdata ℔ e.g. itemtype="https://schema.org/Recipe"
             const microdataEl = doc.querySelector('[itemtype*="Recipe"]');
             if (microdataEl) return parseMicrodataRecipe(microdataEl, doc);
 
             return null;
-        }
-
-        function parseMicrodataRecipe(el, doc) {
-            const prop = (name) => {
-                const els = el.querySelectorAll(`[itemprop="${name}"]`);
-                if (!els.length) return '';
-                const first = els[0];
-                return first.getAttribute('content') || first.getAttribute('datetime') || first.textContent.trim();
-            };
-            const propAll = (name) => Array.from(el.querySelectorAll(`[itemprop="${name}"]`))
-                .map(e => (e.getAttribute('content') || e.textContent).trim()).filter(Boolean);
-
-            const name = prop('name');
-            if (!name) return null;
-
-            let imageUrl = '';
-            const imgEl = el.querySelector('[itemprop="image"]');
-            if (imgEl) imageUrl = imgEl.getAttribute('src') || imgEl.getAttribute('content') || '';
-            if (!imageUrl) {
-                const og = doc.querySelector('meta[property="og:image"]');
-                if (og) imageUrl = og.getAttribute('content') || '';
-            }
-
-            let prepTime = '';
-            const rawTime = prop('prepTime') || prop('totalTime') || prop('cookTime') || '';
-            if (rawTime) { const mins = parseIsoDuration(rawTime); if (mins) prepTime = String(mins); }
-
-            let servings = '';
-            const yieldRaw = prop('recipeYield');
-            if (yieldRaw) { const m = yieldRaw.match(/\d+/); servings = m ? m[0] : yieldRaw; }
-
-            const ingredients = propAll('recipeIngredient').join('\n');
-            const instructions = propAll('recipeInstructions').join('\n\n');
-
-            return { name, imageUrl, prepTime, servings, ingredients, instructions };
         }
 
         function findRecipeInJsonLd(json) {
@@ -928,7 +875,7 @@
                 if (og) imageUrl = og.getAttribute('content') || '';
             }
 
-            // Prep time: ISO 8601 â minutes
+            // Prep time: ISO 8601 → minutes
             let prepTime = '';
             const rawTime = schema.prepTime || schema.totalTime || schema.cookTime || '';
             if (rawTime) {
@@ -988,8 +935,43 @@
             return { name, imageUrl, prepTime, servings, ingredients, instructions };
         }
 
+        function parseMicrodataRecipe(el, doc) {
+            const prop = (name) => {
+                const els = el.querySelectorAll(`[itemprop="${name}"]`);
+                if (!els.length) return '';
+                const first = els[0];
+                return first.getAttribute('content') || first.getAttribute('datetime') || first.textContent.trim();
+            };
+            const propAll = (name) => Array.from(el.querySelectorAll(`[itemprop="${name}"]`))
+                .map(e => (e.getAttribute('content') || e.textContent).trim()).filter(Boolean);
+
+            const name = prop('name');
+            if (!name) return null;
+
+            let imageUrl = '';
+            const imgEl = el.querySelector('[itemprop="image"]');
+            if (imgEl) imageUrl = imgEl.getAttribute('src') || imgEl.getAttribute('content') || '';
+            if (!imageUrl) {
+                const og = doc.querySelector('meta[property="og:image"]');
+                if (og) imageUrl = og.getAttribute('content') || '';
+            }
+
+            let prepTime = '';
+            const rawTime = prop('prepTime') || prop('totalTime') || prop('cookTime') || '';
+            if (rawTime) { const mins = parseIsoDuration(rawTime); if (mins) prepTime = String(mins); }
+
+            let servings = '';
+            const yieldRaw = prop('recipeYield');
+            if (yieldRaw) { const m = yieldRaw.match(/\d+/); servings = m ? m[0] : yieldRaw; }
+
+            const ingredients = propAll('recipeIngredient').join('\n');
+            const instructions = propAll('recipeInstructions').join('\n\n');
+
+            return { name, imageUrl, prepTime, servings, ingredients, instructions };
+        }
+
         function parseIsoDuration(iso) {
-            // PT20M â 20, PT1H30M â 90, P1DT2H â 1560
+            // PT20M → 20, PT1H30M → 90, P1DT2H → 1560
             const m = iso.match(/P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?/);
             if (!m) return 0;
             return (parseInt(m[1] || 0) * 24 * 60) + (parseInt(m[2] || 0) * 60) + parseInt(m[3] || 0);
@@ -1035,7 +1017,7 @@
 
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register(
-                'data:application/javascript;base64,c2VsZi5hZGRFdmVudExpc3RlbmVyKCdpbnN0YWxsJywgZnVuY3Rpb24oZXZlbnQpIHsgc2VsZi5za2lwV2FpdGluZygpOyB9KTsgc2VsZi5hZGRFdmVudExpc3RlbmVyKCdhY3RpdmF0ZScsIGZ1bmN0aW9uKGV2ZW50KSB7IHJldHVybiBzZWxmLmNsaWVudHMuY2xhaW0oKTsgfSk7IHNlbGYuYWRkRXZlbnRMaXN0ZW5lcignZmV0Y2gnLCBmdW5jdGlvbihldmVudCkgeyBldmVudC5yZXNwb25kV2l0aChjYWNoZXMubWF0Y2goZXZlbnQucmVxdWVzdCkudGhlbihmdW5jdGlvbihyZXNwb25zZSkgeyByZXR1cm4gcmVzcG9uc2UgfHwgZmV0Y2goZXZlbnQucmVxdWVzdCk7IH0pKTsgfSk7'
+                'data:application/javascript;base64,c2VsZi5hZGRFdmVudExpc3RlbmVyKCdpbnN0YWxsJywgZnVuY3Rpb24oZXZlbnQpIHsgc2VsZi5za2lwV2FpdGluZygpOyB9KTsgc2VsZi5hZGRFdmVudExpc3RlbmVyKCdhY3RpdmF0ZScsIGZ1bmN0aW9uKGV2ZW50KSB7IHJldHVybiBzZWxmLmNsaWVudHMuY2xhaW0oKTsgfSk7IHNlbGYuYWRkRXZlbnRMaXN0ZW5lcignZmV0Y2gnLCBmdW5jdGlvbihmdW5jdGlvbigldmVudCkgeyBldmVudC5yZXNwb25kV2l0aChjYWNoZXMubWF0Y2goZXZlbnQucmVxdWVzdCkudGhlbihmdW5jdGlvbihyZXNwb25zZSkgeyByZXR1cm4gcmVzcG9uc2UgfHwgZmV0Y2goZXZlbnQucmVxdWVzdCk7IH0pKTsgfSk7'
             ).catch(() => {});
         }
     </script>
