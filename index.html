@@ -603,7 +603,12 @@
             await setDoc(ref, recipe);
         }
 
-        async function deleteReFilters');
+        async function deleteRecipeFromFirestore(id) {
+            await deleteDoc(doc(db, 'users', currentUser.uid, 'recipes', id));
+        }
+
+        function renderCategoryChips() {
+            const container = document.getElementById('categoryFilters');
             if (!container) return;
             // Only show categories that have recipes (plus 'All')
             const usedCats = new Set(recipes.map(r => r.category || '').filter(Boolean));
