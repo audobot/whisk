@@ -386,7 +386,7 @@
                 <div style="flex:1;">
                     <div class="import-url-input">
                         <input type="url" id="importUrlInput"
-                               placeholder="Paste a recipe URL â just the recipe, zero ads â¨">
+                               placeholder="Paste a recipe URL — just the recipe, zero ads ✨">
                         <button class="btn btn-secondary" id="importFetchBtn" onclick="importFromUrl()">Import URL</button>
                     </div>
                     <div class="import-status-wrap">
@@ -504,7 +504,7 @@
         let deferredPrompt;
         let unsubscribeRecipes = null;
 
-        // ââ Auth ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+        // ── Auth ──────────────────────────────────────────────────────────────
         window.signInWithGoogle = async function() {
             const provider = new GoogleAuthProvider();
             try {
@@ -545,7 +545,7 @@
             }
         });
 
-        // ââ Firestore âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+        // ── Firestore ─────────────────────────────────────────────────────────
         function subscribeToRecipes(uid) {
             if (unsubscribeRecipes) unsubscribeRecipes();
             const recipesRef = collection(db, 'users', uid, 'recipes');
@@ -565,7 +565,7 @@
             await deleteDoc(doc(db, 'users', currentUser.uid, 'recipes', id));
         }
 
-        // ââ Event listeners âââââââââââââââââââââââââââââââââââââââââââââââââââ
+        // ── Event listeners ───────────────────────────────────────────────────
         function setupEventListeners() {
             const addBtn = document.getElementById('addRecipeBtn');
             if (addBtn && !addBtn._listenerAdded) {
@@ -591,7 +591,7 @@
             }
         }
 
-        // ââ Recipe modal ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+        // ── Recipe modal ──────────────────────────────────────────────────────
         window.openAddRecipe = function() {
             editingRecipeId = null;
             document.getElementById('modalTitle').textContent = 'Add Recipe';
@@ -646,7 +646,7 @@
             }
         }
 
-        // ââ Render ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+        // ── Render ────────────────────────────────────────────────────────────
         function renderRecipes(filteredRecipes = null) {
             const grid = document.getElementById('recipesGrid');
             const emptyState = document.getElementById('emptyState');
@@ -675,8 +675,8 @@
                            onclick="event.stopPropagation()">ð Source</a>
                     ` : ''}
                     <div class="recipe-meta">
-                        ${recipe.prepTime ? `<span>â±ï¸ ${esc(recipe.prepTime)} min</span>` : ''}
-                        ${recipe.servings ? `<span>ð½ï¸ ${esc(recipe.servings)} servings</span>` : ''}
+                        ${recipe.prepTime ? `<span>⏱️ ${esc(recipe.prepTime)} min</span>` : ''}
+                        ${recipe.servings ? `<span>🍽️ ${esc(recipe.servings)} servings</span>` : ''}
                     </div>
                     <div class="recipe-actions" onclick="event.stopPropagation()">
                         <button class="btn btn-secondary btn-small" onclick="editRecipe('${esc(recipe.id)}')">Edit</button>
@@ -700,8 +700,8 @@
             }
             if (recipe.prepTime || recipe.servings) {
                 html += '<div class="recipe-meta" style="margin-bottom:1.5rem;">';
-                if (recipe.prepTime) html += `<span>â±ï¸ ${esc(recipe.prepTime)} minutes</span>`;
-                if (recipe.servings) html += `<span>ð½ï¸ ${esc(recipe.servings)} servings</span>`;
+                if (recipe.prepTime) html += `<span>⏱️ ${esc(recipe.prepTime)} minutes</span>`;
+                if (recipe.servings) html += `<span>🍽️ ${esc(recipe.servings)} servings</span>`;
                 html += '</div>';
             }
             if (recipe.sourceUrl) {
@@ -752,7 +752,7 @@
             renderRecipes(filtered);
         }
 
-        // ââ URL Import ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+        // ── URL Import ────────────────────────────────────────────────────────
         window.importFromUrl = async function() {
             const urlInput = document.getElementById('importUrlInput');
             const url = urlInput.value.trim();
@@ -795,7 +795,7 @@
             } catch (err) {
                 console.error('Import error:', err);
                 const msg = err.message === 'All proxies failed'
-                    ? 'All fetch attempts failed â the site may aggressively block scrapers. Try copying the URL from the recipe page directly.'
+                    ? 'All fetch attempts failed — the site may aggressively block scrapers. Try copying the URL from the recipe page directly.'
                     : 'Something went wrong fetching that URL. Check it\'s a valid recipe page.';
                 statusEl.textContent = msg;
                 statusEl.className = 'import-status error';
@@ -805,7 +805,7 @@
         };
 
         async function fetchRecipeFromUrl(url) {
-            // Multiple proxies tried in sequence â different sites block different ones
+            // Multiple proxies tried in sequence — different sites block different ones
             const proxies = [
                 {
                     build: u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
@@ -837,7 +837,7 @@
             const doc = parser.parseFromString(html, 'text/html');
 
             // Try all JSON-LD script blocks
-            const scripts = doc.querySelectorAll('script[type="application/ld+json"]');
+            const scripts = doc.querySelectorAll('script[type*="ld+json"]');
             for (const script of scripts) {
                 try {
                     const json = JSON.parse(script.textContent);
@@ -845,7 +845,46 @@
                     if (schemaRecipe) return parseSchemaRecipe(schemaRecipe, doc);
                 } catch (e) { /* skip malformed */ }
             }
+            // Fallback: microdata — e.g. itemtype="https://schema.org/Recipe"
+            const microdataEl = doc.querySelector('[itemtype*="Recipe"]');
+            if (microdataEl) return parseMicrodataRecipe(microdataEl, doc);
+
             return null;
+        }
+
+        function parseMicrodataRecipe(el, doc) {
+            const prop = (name) => {
+                const els = el.querySelectorAll(`[itemprop="${name}"]`);
+                if (!els.length) return '';
+                const first = els[0];
+                return first.getAttribute('content') || first.getAttribute('datetime') || first.textContent.trim();
+            };
+            const propAll = (name) => Array.from(el.querySelectorAll(`[itemprop="${name}"]`))
+                .map(e => (e.getAttribute('content') || e.textContent).trim()).filter(Boolean);
+
+            const name = prop('name');
+            if (!name) return null;
+
+            let imageUrl = '';
+            const imgEl = el.querySelector('[itemprop="image"]');
+            if (imgEl) imageUrl = imgEl.getAttribute('src') || imgEl.getAttribute('content') || '';
+            if (!imageUrl) {
+                const og = doc.querySelector('meta[property="og:image"]');
+                if (og) imageUrl = og.getAttribute('content') || '';
+            }
+
+            let prepTime = '';
+            const rawTime = prop('prepTime') || prop('totalTime') || prop('cookTime') || '';
+            if (rawTime) { const mins = parseIsoDuration(rawTime); if (mins) prepTime = String(mins); }
+
+            let servings = '';
+            const yieldRaw = prop('recipeYield');
+            if (yieldRaw) { const m = yieldRaw.match(/\d+/); servings = m ? m[0] : yieldRaw; }
+
+            const ingredients = propAll('recipeIngredient').join('\n');
+            const instructions = propAll('recipeInstructions').join('\n\n');
+
+            return { name, imageUrl, prepTime, servings, ingredients, instructions };
         }
 
         function findRecipeInJsonLd(json) {
@@ -933,7 +972,7 @@
                             const t = (step.text || step.name || '').replace(/<[^>]+>/g, '').trim();
                             if (t) steps.push(t);
                         } else if (step['@type'] === 'HowToSection') {
-                            if (step.name) steps.push('â ' + step.name + ' â');
+                            if (step.name) steps.push('— ' + step.name + ' —');
                             if (Array.isArray(step.itemListElement)) {
                                 step.itemListElement.forEach(s => {
                                     const t = (s.text || s.name || '').replace(/<[^>]+>/g, '').trim();
@@ -956,7 +995,7 @@
             return (parseInt(m[1] || 0) * 24 * 60) + (parseInt(m[2] || 0) * 60) + parseInt(m[3] || 0);
         }
 
-        // ââ Helpers âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+        // ── Helpers ───────────────────────────────────────────────────────────
         function esc(str) {
             if (!str) return '';
             return String(str)
@@ -967,7 +1006,7 @@
                 .replace(/'/g, '&#39;');
         }
 
-        // ââ Modals & PWA ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+        // ── Modals & PWA ──────────────────────────────────────────────────────
         document.getElementById('recipeModal').addEventListener('click', (e) => {
             if (e.target.id === 'recipeModal') closeRecipeModal();
         });
