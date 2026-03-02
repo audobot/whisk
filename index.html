@@ -659,6 +659,24 @@
       initCategoryTagInput([]);
     });
   }
+            let delBtn = document.getElementById('deleteRecipeBtn');
+            if (!delBtn) {
+              delBtn = document.createElement('button');
+              delBtn.type = 'button';
+              delBtn.id = 'deleteRecipeBtn';
+              delBtn.className = 'btn btn-danger';
+              delBtn.style.display = 'none';
+              delBtn.textContent = 'Delete';
+              delBtn.onclick = function() {
+                const id = document.getElementById('recipeId').value;
+                if (id) window.deleteRecipe(id);
+              };
+              const footerDiv = document.querySelector('#recipeModal .modal-content form > div:last-child');
+              if (footerDiv) {
+                footerDiv.style.alignItems = 'center';
+                footerDiv.insertBefore(delBtn, footerDiv.firstChild);
+              }
+            }
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const btn = form.querySelector('button[type=submit]');
