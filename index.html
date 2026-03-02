@@ -489,7 +489,8 @@
                     <datalist id="categoryOptions"></datalist>
                 </div>
 
-                <div style="display:flex;gap:1rem;margin-top:2rem;">
+                <div style="display:flex;gap:1rem;margin-top:2rem;align-items:center;">
+                    <button type="button" id="deleteRecipeBtn" class="btn btn-danger" style="display:none;" onclick="window.__deleteCurrentRecipe()">Delete</button>
                     <button type="submit" class="btn btn-primary" style="flex:1;">Save Recipe</button>
                     <button type="button" class="btn btn-secondary" onclick="closeRecipeModal()">Cancel</button>
                 </div>
