@@ -648,6 +648,14 @@
             const form = document.getElementById('recipeForm');
             if (!form || form._bound) return;
             form._bound = true;
+  const addBtn = document.getElementById('addRecipeBtn');
+  if (addBtn && !addBtn._bound) {
+    addBtn._bound = true;
+    addBtn.addEventListener('click', () => {
+      document.getElementById('recipeModal').classList.add('active');
+      initCategoryTagInput([]);
+    });
+  }
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const btn = form.querySelector('button[type=submit]');
