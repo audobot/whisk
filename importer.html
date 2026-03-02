@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whisk — Trello Importer</title>
+<style>
+  body { font-family: 'Segoe UI', sans-serif; max-width: 640px; margin: 60px auto; padding: 2rem; background: #fafafa; color: #111; }
+  h1 { font-size: 2rem; margin-bottom: 0.25rem; }
+  .subtitle { color: #666; margin-bottom: 2rem; }
+  .step { background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; padding: 1.25rem 1.5rem; margin-bottom: 1rem; }
+  .step h3 { margin: 0 0 0.5rem; font-size: 1rem; }
+  .step p { margin: 0; color: #555; font-size: 0.9rem; }
+  input[type=file] { margin-top: 0.75rem; }
+  button { padding: 0.85rem 1.75rem; background: #330033; color: #fff; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 0.75rem; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  #signinBtn { background: #4285f4; margin-left: 0.75rem; }
+  #status { margin-top: 1.5rem; }
+  #log { font-family: monospace; font-size: 0.82rem; background: #111; color: #0f0; padding: 1.25rem; border-radius: 8px; max-height: 360px; overflow-y: auto; white-space: pre-wrap; margin-top: 0.75rem; display: none; }
+  .done { color: #16a34a; font-weight: 700; font-size: 1rem; margin-top: 1rem; }
+  a { color: #330033; }
+</style>
+</head>
+<body>
+<h1>🥘 Whisk Importer</h1>
+<p class="subtitle">Import your Trello recipe cards directly into Whisk.</p>
+
+<div class="step">
+  <h3>Step 1 — Sign in</h3>
+  <p>You need to be signed into Whisk. If you already have Whisk open in another tab, you're good.</p>
+  <div id="authStatus" style="margin-top:0.5rem;font-size:0.9rem;color:#888">Checking…</div>
+  <button id="signinBtn" style="display:none" onclick="doSignIn()">Sign in with Google</button>
+</div>
+
+<div class="step">
+  <h3>Step 2 — Choose your Trello export</h3>
+  <p>Export your Trello board as JSON: Board → Show menu → More → Print and Export → Export as JSON. Then pick the file below.</p>
+  <input type="file" id="jsonFile" accept=".json">
+</div>
+
+<div class="step">
+  <h3>Step 3 — Import</h3>
+  <p id="recipeCount" style="color:#888">Pick a Trello JSON file to see recipe count.</p>
+  <button id="importBtn" disabled onclick="runImport()">Import Recipes →</button>
+</div>
+
+<div id="status">
+  <div id="log"></div>
+</div>
+
+<script type="module">
+import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+import { getFirestore, doc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAEoriQJjqu8rBEN0gNQPY0HEc57hJxng8",
+  authDomain: "whisk-51903.firebaseapp.com",
+  projectId: "whisk-51903",
+  storageBucket: "whisk-51903.firebasestorage.app",
+  messagingSenderId: "1080056194365",
+  appId: "1:1080056194365:web:b49b1a6fdae1660f1b1a"
+};
+
+const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+let currentUser = null;
+let parsedRecipes = [];
+
+// --- Auth ---
+onAuthStateChanged(auth, (user) => {
+  currentUser = user;
+  const statusEl = document.getElementById('authStatus');
+  const signinBtn = document.getElementById('signinBtn');
+  if (user) {
+    statusEl.textContent = '✅ Signed in as ' + user.email;
+    statusEl.style.color = '#16a34a';
+    signinBtn.style.display = 'none';
+  } else {
+    statusEl.textContent = '❌ Not signed in.';
+    statusEl.style.color = '#dc2626';
+    signinBtn.style.display = 'inline-block';
+  }
+  updateImportBtn();
+});
+
+window.doSignIn = async function() {
+  const btn = document.getElementById('signinBtn');
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  try {
+    const result = await signInWithPopup(auth, new GoogleAuthProvider());
+    currentUser = result.user;
+  } catch(e) {
+    alert('Sign-in failed: ' + e.message);
+    btn.disabled = false; btn.textContent = 'Sign in with Google';
+  }
+};
+
+// --- Trello JSON parsing ---
+const CAT_MAP = {
+  'Mains': 'Dinner', 'Vegetarian Meals': 'Dinner',
+  'Sweets': 'Dessert', 'Sides': 'Snacks',
+  'BREAD + CRISPBREAD': 'Snacks', 'Bariatric Recipes': 'Other',
+  'Misc': 'Other', 'Meal Plan': 'Other'
+};
+const SKIP = new Set(['What\'s in Season?','Things to Use','Tinned Tomatoes','Rice']);
+
+function parseIngredients(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+  return lines.map(l => ({ name: l, amount: '', unit: '' }));
+}
+
+function parseInstructions(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+  return lines.map((l, i) => ({ step: i + 1, text: l }));
+}
+
+function extractUrl(text) {
+  const m = text.match(/https?:\/\/[^\s\)]+/);
+  return m ? m[0] : null;
+}
+
+function parseTrello(board) {
+  const listMap = {};
+  for (const list of board.lists || []) {
+    if (!list.closed) listMap[list.id] = list.name;
+  }
+  const recipes = [];
+  const nonRecipeNames = new Set(SKIP);
+  for (const card of board.cards || []) {
+    if (card.closed) continue;
+    const name = card.name.trim();
+    if (nonRecipeNames.has(name)) continue;
+    const listName = listMap[card.idList] || 'Other';
+    const category = CAT_MAP[listName] || 'Other';
+    const desc = (card.desc || '').trim();
+
+    // Image
+    let imageUrl = '';
+    if (card.cover && card.cover.scaled && card.cover.scaled.length) {
+      const scaled = card.cover.scaled.filter(s => s.width >= 400);
+      imageUrl = scaled.length ? scaled[0].url : card.cover.scaled[card.cover.scaled.length - 1].url;
+    }
+
+    // Source URL
+    let sourceUrl = '';
+    const urlInName = extractUrl(name);
+    const urlInDesc = extractUrl(desc);
+    if (urlInName) {
+      sourceUrl = urlInName;
+    } else if (urlInDesc) {
+      sourceUrl = urlInDesc;
+    }
+    if (card.attachments) {
+      for (const att of card.attachments) {
+        if (att.url && !sourceUrl) sourceUrl = att.url;
+        if (att.previews && att.previews.length && !imageUrl) {
+          const big = att.previews.filter(p => p.width >= 400);
+          imageUrl = big.length ? big[0].url : att.previews[att.previews.length - 1].url;
+        }
+      }
+    }
+
+    // Recipe title
+    let recipeName = name;
+    if (urlInName) {
+      try { recipeName = new URL(urlInName).hostname.replace(/^www\./, ''); } catch(e) {}
+    }
+
+    // Ingredients / instructions
+    let ingredients = [];
+    let instructions = [];
+    if (desc) {
+      const halfIdx = Math.floor(desc.split('\n').length / 2);
+      const lines = desc.split('\n');
+      const ingLines = lines.slice(0, halfIdx).join('\n');
+      const insLines = lines.slice(halfIdx).join('\n');
+      ingredients = parseIngredients(ingLines);
+      instructions = parseInstructions(insLines);
+    }
+
+    recipes.push({
+      id: card.id,
+      name: recipeName,
+      category,
+      ingredients,
+      instructions,
+      imageUrl,
+      sourceUrl,
+      prepTime: '',
+      servings: '',
+      createdAt: Date.now()
+    });
+  }
+  return recipes;
+}
+
+// --- File input ---
+document.getElementById('jsonFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const board = JSON.parse(text);
+    parsedRecipes = parseTrello(board);
+    document.getElementById('recipeCount').textContent = `Found ${parsedRecipes.length} recipes ready to import.`;
+    document.getElementById('recipeCount').style.color = '#16a34a';
+    updateImportBtn();
+  } catch(err) {
+    document.getElementById('recipeCount').textContent = 'Error reading file: ' + err.message;
+    document.getElementById('recipeCount').style.color = '#dc2626';
+  }
+});
+
+function updateImportBtn() {
+  document.getElementById('importBtn').disabled = !(currentUser && parsedRecipes.length > 0);
+}
+
+// --- Import ---
+function log(msg) {
+  const el = document.getElementById('log');
+  el.style.display = 'block';
+  el.textContent += msg + '\n';
+  el.scrollTop = el.scrollHeight;
+}
+
+window.runImport = async function() {
+  const btn = document.getElementById('importBtn');
+  btn.disabled = true; btn.textContent = 'Importing…';
+  log(`Importing ${parsedRecipes.length} recipes…\n`);
+
+  const BATCH_SIZE = 20;
+  let done = 0, errors = 0;
+
+  for (let i = 0; i < parsedRecipes.length; i += BATCH_SIZE) {
+    const batch = writeBatch(db);
+    const chunk = parsedRecipes.slice(i, i + BATCH_SIZE);
+    for (const recipe of chunk) {
+      const ref = doc(db, 'users', currentUser.uid, 'recipes', recipe.id);
+      batch.set(ref, recipe);
+    }
+    try {
+      await batch.commit();
+      done += chunk.length;
+      log(`✓ ${done}/${parsedRecipes.length} imported…`);
+    } catch(e) {
+      errors += chunk.length;
+      log(`✗ Batch error: ${e.message}`);
+    }
+  }
+
+  log(`\n🎉 Done! ${done} imported, ${errors} errors.`);
+  btn.textContent = 'Done ✓';
+  if (done > 0) {
+    document.getElementById('status').insertAdjacentHTML('beforeend',
+      '<p class="done">✅ Open <a href="https://audobot.github.io/whisk/" target="_blank">Whisk</a> and refresh to see your recipes!</p>');
+  }
+};
+</script>
+</body>
+</html>
