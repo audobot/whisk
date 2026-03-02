@@ -163,10 +163,24 @@ function parseTrello(board) {
       }
     }
 
-    // Recipe title
+    // Recipe title — extract from URL slug if card name is a URL
+    const SKIP_SEGS = new Set(['recipes','recipe','blog','post','posts','cooking','recipe-ideas']);
     let recipeName = name;
     if (urlInName) {
-      try { recipeName = new URL(urlInName).hostname.replace(/^www\./, ''); } catch(e) {}
+      try {
+        const parsed = new URL(urlInName);
+        const parts = parsed.pathname.replace(/\/$/, '').split('/').filter(p => p && !SKIP_SEGS.has(p.toLowerCase()));
+        if (parts.length) {
+          let slug = parts[parts.length - 1].split('#')[0];
+          // If last segment looks like a hash ID (short, no hyphens), use previous segment
+          if (/^[a-z0-9]{6,12}$/.test(slug) && !slug.includes('-') && parts.length > 1) {
+            slug = parts[parts.length - 2].split('#')[0];
+          }
+          // Remove trailing -recipe/-recipes suffix
+          slug = slug.replace(/-(recipes?)$/, '');
+          recipeName = slug.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        }
+      } catch(e) {}
     }
 
     // Ingredients / instructions
