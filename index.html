@@ -598,6 +598,44 @@
             }, (err) => { console.error('Firestore error:', err); });
         }
 
+        function updateImagePreview(url) {
+            const img = document.getElementById('imagePreviewImg');
+            const box = document.getElementById('imagePreviewBox');
+            if (img) img.src = url || '';
+            if (box) box.style.display = url ? 'block' : 'none';
+        }
+
+        function setupEventListeners() {
+            const form = document.getElementById('recipeForm');
+            if (!form || form._bound) return;
+            form._bound = true;
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const btn = form.querySelector('button[type=submit]');
+                if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+                const id = document.getElementById('recipeId').value || crypto.randomUUID();
+                const recipe = {
+                    id,
+                    name: document.getElementById('recipeName').value.trim(),
+                    prepTime: document.getElementById('prepTime').value,
+                    servings: document.getElementById('servings').value,
+                    ingredients: document.getElementById('ingredients').value,
+                    instructions: document.getElementById('instructions').value,
+                    imageUrl: document.getElementById('recipeImageUrl').value.trim(),
+                    category: document.getElementById('recipeCategory').value,
+                    sourceUrl: document.getElementById('recipeSourceUrl').value.trim(),
+                    createdAt: Date.now(),
+                };
+                try {
+                    await saveRecipeToFirestore(recipe);
+                    closeRecipeModal();
+                } catch(err) {
+                    alert('Error saving: ' + err.message);
+                    if (btn) { btn.disabled = false; btn.textContent = 'Save Recipe'; }
+                }
+            });
+        }
+
         async function saveRecipeToFirestore(recipe) {
             const ref = doc(db, 'users', currentUser.uid, 'recipes', recipe.id);
             await setDoc(ref, recipe);
