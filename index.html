@@ -342,7 +342,14 @@
             font-weight: 600; cursor: pointer; transition: all 0.3s var(--ease-smooth);
         }
         .install-prompt button:hover { background: var(--light-grey); transform: translateY(-2px); }
-    </style>
+    
+        .category-tag-container{display:flex;flex-wrap:wrap;gap:0.35rem;align-items:center;border:1px solid var(--light-grey);border-radius:8px;padding:0.4rem 0.6rem;background:var(--white);min-height:2.6rem;cursor:text;}
+        .category-tag-container:focus-within{border-color:var(--dark-purple);box-shadow:0 0 0 2px color-mix(in srgb,var(--dark-purple) 20%,transparent);}
+        .cat-tag{display:inline-flex;align-items:center;gap:0.25rem;background:var(--light-grey);color:var(--black);border-radius:4px;padding:0.15rem 0.5rem;font-size:0.82rem;font-weight:500;white-space:nowrap;}
+        .cat-tag .remove-tag{cursor:pointer;opacity:0.5;font-size:0.9rem;padding:0 0.1rem;}
+        .cat-tag .remove-tag:hover{opacity:1;}
+        #categoryTagInput{border:none!important;outline:none!important;box-shadow:none!important;padding:0.1rem 0.2rem!important;min-width:140px;flex:1;background:transparent;font-size:0.9rem;font-family:inherit;}
+        </style>
 </head>
 <body>
 
@@ -399,7 +406,7 @@
                 <div class="search-box">
                     <input type="text" id="searchInput" placeholder="Search recipes...">
                 </div>
-                <button class="btn btn-primary" id="addRecipeBtn">+ Add Recipe</button>
+                <button class="btn btn-primary" id="addRecipeBtn" onclick="if(window.__initCategoryTagInput)window.__initCategoryTagInput([])">+ Add Recipe</button>
             </div>
 
             <!-- URL Import row -->
@@ -476,17 +483,8 @@
 
                 <div class="form-group">
                     <label for="recipeCategory">Category</label>
-                    <input type="text" id="recipeCategory" list="categoryOptions" placeholder="e.g. Dinner, Baking…" autocomplete="off" style="width:100%">
-                    <datalist id="categoryOptions">
-                        <option value="Uncategorised">
-                        <option value="Breakfast">
-                        <option value="Lunch">
-                        <option value="Dinner">
-                        <option value="Dessert">
-                        <option value="Snacks">
-                        <option value="Drinks">
-                        <option value="Other">
-                    </datalist>
+                    <div id="categoryTagContainer" class="category-tag-container"><input type="text" id="categoryTagInput" list="categoryOptions" placeholder="Add category, press Enter…" autocomplete="off"></div>
+                    <datalist id="categoryOptions"></datalist>
                 </div>
 
                 <div style="display:flex;gap:1rem;margin-top:2rem;">
@@ -545,6 +543,7 @@
         let activeCategory = 'All';
 
         const CATEGORIES = ['All', 'Breakfast', 'Lunch', 'Dinner', 'Dessert', 'Snacks', 'Drinks', 'Other'];
+        const DEFAULT_CATEGORIES = ['Breakfast','Lunch','Dinner','Dessert','Snacks','Drinks','Other','Uncategorised'];
 
         // ── Auth ──────────────────────────────────────────────────────────────
         window.signInWithGoogle = async function() {
@@ -606,6 +605,45 @@
             if (box) box.style.display = url ? 'block' : 'none';
         }
 
+        function initCategoryTagInput(initialCats) {
+            const container = document.getElementById('categoryTagContainer');
+            const input = document.getElementById('categoryTagInput');
+            const datalist = document.getElementById('categoryOptions');
+            if (!container || !input) return;
+            let tags = Array.isArray(initialCats) ? [...initialCats] : [];
+            function renderTags() {
+                container.querySelectorAll('.cat-tag').forEach(el => el.remove());
+                tags.forEach((tag, i) => {
+                    const chip = document.createElement('span');
+                    chip.className = 'cat-tag';
+                    chip.innerHTML = tag + ' <span class="remove-tag" onclick="window.__removeCatTag(' + i + ')">&#x2715;</span>';
+                    container.insertBefore(chip, input);
+                });
+                const usedCustom = [...new Set(recipes.flatMap(r => r.categories || (r.category ? [r.category] : [])))].filter(c => !DEFAULT_CATEGORIES.includes(c));
+                const suggestions = [...usedCustom, ...DEFAULT_CATEGORIES].filter(c => !tags.includes(c));
+                datalist.innerHTML = suggestions.map(c => '<option value="' + c + '">').join('');
+            }
+            window.__removeCatTag = function(i) { tags.splice(i, 1); renderTags(); };
+            window.__getCategoryTags = function() { return [...tags]; };
+            window.__initCategoryTagInput = initCategoryTagInput;
+            input.onkeydown = function(e) {
+                if (e.key === 'Enter' || e.key === ',') {
+                    e.preventDefault();
+                    const val = input.value.trim().replace(/,$/, '');
+                    if (val && !tags.includes(val)) { tags.push(val); }
+                    input.value = ''; renderTags();
+                } else if (e.key === 'Backspace' && !input.value && tags.length) {
+                    tags.pop(); renderTags();
+                }
+            };
+            input.onblur = function() {
+                const val = input.value.trim().replace(/,$/, '');
+                if (val && !tags.includes(val)) { tags.push(val); input.value = ''; renderTags(); }
+            };
+            container.onclick = function(e) { if (e.target === container) input.focus(); };
+            renderTags();
+        }
+
         function setupEventListeners() {
             const form = document.getElementById('recipeForm');
             if (!form || form._bound) return;
@@ -623,7 +661,8 @@
                     ingredients: document.getElementById('ingredients').value,
                     instructions: document.getElementById('instructions').value,
                     imageUrl: document.getElementById('recipeImageUrl').value.trim(),
-                    category: document.getElementById('recipeCategory').value,
+                    categories: window.__getCategoryTags ? window.__getCategoryTags() : [],
+                category: (window.__getCategoryTags ? window.__getCategoryTags() : [])[0] || '',
                     sourceUrl: document.getElementById('recipeSourceUrl').value.trim(),
                     createdAt: Date.now(),
                 };
@@ -650,10 +689,11 @@
         function renderCategoryChips() {
             const container = document.getElementById('categoryFilters');
             if (!container) return;
-            // Only show categories that have recipes (plus 'All')
-            const usedCats = new Set(recipes.map(r => r.category || '').filter(Boolean));
-            const visible = CATEGORIES.filter(c => c === 'All' || usedCats.has(c));
-            if (visible.length <= 1) { container.innerHTML = ''; return; }
+            const usedCats = new Set(recipes.flatMap(r => r.categories || (r.category ? [r.category] : [])));
+            if (usedCats.size === 0) { container.innerHTML = ''; return; }
+            const customCats = [...usedCats].filter(c => !DEFAULT_CATEGORIES.includes(c)).sort();
+            const defaultCats = DEFAULT_CATEGORIES.filter(c => usedCats.has(c));
+            const visible = ['All', ...customCats, ...defaultCats];
             container.innerHTML = visible.map(cat => `
                 <button class="cat-chip${activeCategory === cat ? ' active' : ''}"
                         onclick="setCategory('${cat}')">${cat}</button>
@@ -669,7 +709,7 @@
         function applyFilters() {
             const q = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
             let filtered = activeCategory === 'All' ? recipes
-                : recipes.filter(r => (r.category || '') === activeCategory);
+                : recipes.filter(r => (r.categories || (r.category ? [r.category] : [])).includes(activeCategory));
             if (q) filtered = filtered.filter(r =>
                 r.name.toLowerCase().includes(q) ||
                 (r.ingredients || '').toLowerCase().includes(q)
@@ -700,7 +740,7 @@
                                  onerror="this.parentElement.style.display='none'">
                         </div>
                     ` : ''}
-                    ${recipe.category ? `<span class="category-badge">${esc(recipe.category)}</span>` : ''}
+                    ${(recipe.categories||(recipe.category?[recipe.category]:[])).map(c=>`<span class="category-badge">${esc(c)}</span>`).join('')}
                     <h3>${esc(recipe.name)}</h3>
                     ${recipe.sourceUrl ? `
                         <a class="source-badge" href="${esc(recipe.sourceUrl)}" target="_blank" rel="noopener"
@@ -763,7 +803,7 @@
             document.getElementById('ingredients').value = recipe.ingredients;
             document.getElementById('instructions').value = recipe.instructions;
             document.getElementById('recipeImageUrl').value = recipe.imageUrl || '';
-            document.getElementById('recipeCategory').value = recipe.category || '';
+            initCategoryTagInput(recipe.categories || (recipe.category ? [recipe.category] : []));
             updateImagePreview(recipe.imageUrl || '');
             document.getElementById('recipeModal').classList.add('active');
         };
@@ -1068,7 +1108,10 @@
     </script>
 <script>
 function closeViewModal(){document.getElementById('viewModal').classList.remove('active');}
-function closeRecipeModal(){document.getElementById('recipeModal').classList.remove('active');}
+function closeRecipeModal(){
+  document.getElementById('recipeModal').classList.remove('active');
+  if (window.__initCategoryTagInput) window.__initCategoryTagInput([]);
+}
 </script>
 </body>
 </html>
