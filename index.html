@@ -349,6 +349,8 @@
         .cat-tag .remove-tag{cursor:pointer;opacity:0.5;font-size:0.9rem;padding:0 0.1rem;}
         .cat-tag .remove-tag:hover{opacity:1;}
         #categoryTagInput{border:none!important;outline:none!important;box-shadow:none!important;padding:0.1rem 0.2rem!important;min-width:140px;flex:1;background:transparent;font-size:0.9rem;font-family:inherit;}
+.btn-danger{background:transparent;color:#c0392b;border:1.5px solid #c0392b;padding:0.6rem 1.1rem;border-radius:8px;font-weight:600;cursor:pointer;transition:background 0.15s,color 0.15s;white-space:nowrap;}
+.btn-danger:hover{background:#c0392b;color:var(--white);}
         </style>
 </head>
 <body>
@@ -814,11 +816,17 @@
             initCategoryTagInput(recipe.categories || (recipe.category ? [recipe.category] : []));
             updateImagePreview(recipe.imageUrl || '');
             document.getElementById('recipeModal').classList.add('active');
+        const delBtn = document.getElementById('deleteRecipeBtn');
+        if (delBtn) delBtn.style.display = '';
+        };
+        window.__deleteCurrentRecipe = function() {
+          const id = document.getElementById('recipeId').value;
+          if (id) window.deleteRecipe(id);
         };
 
         window.deleteRecipe = async function(id) {
             if (!confirm('Delete this recipe?')) return;
-            try { await deleteRecipeFromFirestore(id); }
+            try { await deleteRecipeFromFirestore(id); closeRecipeModal(); }
             catch (err) { alert('Error deleting recipe: ' + err.message); }
         };
 
@@ -1119,6 +1127,8 @@ function closeViewModal(){document.getElementById('viewModal').classList.remove(
 function closeRecipeModal(){
   document.getElementById('recipeModal').classList.remove('active');
   if (window.__initCategoryTagInput) window.__initCategoryTagInput([]);
+  const delBtn = document.getElementById('deleteRecipeBtn');
+  if (delBtn) delBtn.style.display = 'none';
 }
 </script>
 </body>
