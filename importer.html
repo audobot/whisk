@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Whisk — Trello Importer</title>
+<title>Whisk â Trello Importer</title>
 <style>
   body { font-family: 'Segoe UI', sans-serif; max-width: 640px; margin: 60px auto; padding: 2rem; background: #fafafa; color: #111; }
   h1 { font-size: 2rem; margin-bottom: 0.25rem; }
@@ -14,38 +14,56 @@
   input[type=file] { margin-top: 0.75rem; }
   button { padding: 0.85rem 1.75rem; background: #330033; color: #fff; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 0.75rem; }
   button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.secondary { background: #f0e6f0; color: #330033; font-weight: 500; padding: 0.6rem 1.25rem; font-size: 0.9rem; }
+  button.secondary:hover:not(:disabled) { background: #e0cce0; }
   #signinBtn { background: #4285f4; margin-left: 0.75rem; }
   #status { margin-top: 1.5rem; }
   #log { font-family: monospace; font-size: 0.82rem; background: #111; color: #0f0; padding: 1.25rem; border-radius: 8px; max-height: 360px; overflow-y: auto; white-space: pre-wrap; margin-top: 0.75rem; display: none; }
   .done { color: #16a34a; font-weight: 700; font-size: 1rem; margin-top: 1rem; }
   a { color: #330033; }
+  .cache-notice { margin-top: 0.75rem; padding: 0.75rem 1rem; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; font-size: 0.9rem; color: #166534; display: none; }
+  .cache-notice span { color: #555; font-size: 0.82rem; margin-left: 0.5rem; }
+  .btn-row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-top: 0.75rem; }
 </style>
 </head>
 <body>
-<h1>🥘 Whisk Importer</h1>
+<h1>ð¥ Whisk Importer</h1>
 <p class="subtitle">Import your Trello recipe cards directly into Whisk.</p>
 
 <div class="step">
-  <h3>Step 1 — Sign in</h3>
+  <h3>Step 1 â Sign in</h3>
   <p>You need to be signed into Whisk. If you already have Whisk open in another tab, you're good.</p>
-  <div id="authStatus" style="margin-top:0.5rem;font-size:0.9rem;color:#888">Checking…</div>
+  <div id="authStatus" style="margin-top:0.5rem;font-size:0.9rem;color:#888">Checkingâ¦</div>
   <button id="signinBtn" style="display:none" onclick="doSignIn()">Sign in with Google</button>
 </div>
 
 <div class="step">
-  <h3>Step 2 — Choose your Trello export</h3>
-  <p>Export your Trello board as JSON: Board → Show menu → More → Print and Export → Export as JSON. Then pick the file below.</p>
+  <h3>Step 2 â Choose your Trello export</h3>
+  <p>Export your Trello board as JSON: Board â Show menu â More â Print and Export â Export as JSON. Then pick the file below.</p>
   <input type="file" id="jsonFile" accept=".json">
+  <div class="cache-notice" id="cacheNotice">
+    ð¦ <strong id="cacheLabel"></strong><span id="cacheAge"></span>
+    <div class="btn-row">
+      <button class="secondary" onclick="loadFromCache()">â© Re-import from cache</button>
+      <button class="secondary" onclick="clearCache()">ð Clear cache</button>
+    </div>
+  </div>
 </div>
 
 <div class="step">
-  <h3>Step 3 — Import</h3>
+  <h3>Step 3 â Import</h3>
   <p id="recipeCount" style="color:#888">Pick a Trello JSON file to see recipe count.</p>
   <label style="display:block;margin-top:0.75rem;font-size:0.9rem;color:#555;cursor:pointer">
     <input type="checkbox" id="fetchImages" checked style="margin-right:0.4rem">
     Fetch missing cover images from recipe pages <span style="color:#888">(adds ~20s)</span>
   </label>
-  <button id="importBtn" disabled onclick="runImport()">Import Recipes →</button>
+  <button id="importBtn" disabled onclick="runImport()">Import Recipes â</button>
+</div>
+
+<div class="step">
+  <h3>Step 4 â Patch missing images</h3>
+  <p>Already imported but some recipes are missing images? This reads your Firestore recipes, finds those with a source URL but no image, and fetches covers via Microlink.</p>
+  <button id="patchBtn" disabled onclick="patchImages()">ð¼ Fetch Missing Images</button>
 </div>
 
 <div id="status">
@@ -55,7 +73,7 @@
 <script type="module">
 import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-import { getFirestore, doc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+import { getFirestore, doc, writeBatch, collection, getDocs, updateDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyAEoriQJjqu8rBEN0gNQPY0HEc57hJxng8",
@@ -79,20 +97,20 @@ onAuthStateChanged(auth, (user) => {
   const statusEl = document.getElementById('authStatus');
   const signinBtn = document.getElementById('signinBtn');
   if (user) {
-    statusEl.textContent = '✅ Signed in as ' + user.email;
+    statusEl.textContent = 'â Signed in as ' + user.email;
     statusEl.style.color = '#16a34a';
     signinBtn.style.display = 'none';
   } else {
-    statusEl.textContent = '❌ Not signed in.';
+    statusEl.textContent = 'â Not signed in.';
     statusEl.style.color = '#dc2626';
     signinBtn.style.display = 'inline-block';
   }
-  updateImportBtn();
+  updateButtons();
 });
 
 window.doSignIn = async function() {
   const btn = document.getElementById('signinBtn');
-  btn.disabled = true; btn.textContent = 'Signing in…';
+  btn.disabled = true; btn.textContent = 'Signing inâ¦';
   try {
     const result = await signInWithPopup(auth, new GoogleAuthProvider());
     currentUser = result.user;
@@ -101,6 +119,56 @@ window.doSignIn = async function() {
     btn.disabled = false; btn.textContent = 'Sign in with Google';
   }
 };
+
+// --- localStorage cache ---
+const CACHE_KEY = 'whiskImportCache';
+
+function saveCache(recipes) {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), recipes }));
+  } catch(e) {}
+}
+
+function loadCache() {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch(e) { return null; }
+}
+
+function showCacheNotice(cache) {
+  const notice = document.getElementById('cacheNotice');
+  const label = document.getElementById('cacheLabel');
+  const age = document.getElementById('cacheAge');
+  label.textContent = `${cache.recipes.length} recipes cached`;
+  const mins = Math.round((Date.now() - cache.ts) / 60000);
+  age.textContent = mins < 60 ? ` (${mins}m ago)` : ` (${Math.round(mins/60)}h ago)`;
+  notice.style.display = 'block';
+}
+
+window.loadFromCache = function() {
+  const cache = loadCache();
+  if (!cache) return;
+  parsedRecipes = cache.recipes;
+  document.getElementById('recipeCount').textContent = `Found ${parsedRecipes.length} recipes ready to import.`;
+  document.getElementById('recipeCount').style.color = '#16a34a';
+  updateButtons();
+};
+
+window.clearCache = function() {
+  localStorage.removeItem(CACHE_KEY);
+  document.getElementById('cacheNotice').style.display = 'none';
+  parsedRecipes = [];
+  document.getElementById('recipeCount').textContent = 'Pick a Trello JSON file to see recipe count.';
+  document.getElementById('recipeCount').style.color = '#888';
+  updateButtons();
+};
+
+// Check for cache on load
+const existingCache = loadCache();
+if (existingCache && existingCache.recipes.length > 0) {
+  showCacheNotice(existingCache);
+}
 
 // --- Trello JSON parsing ---
 const CAT_MAP = {
@@ -167,7 +235,7 @@ function parseTrello(board) {
       }
     }
 
-    // Recipe title — extract from URL slug if card name is a URL
+    // Recipe title â extract from URL slug if card name is a URL
     const SKIP_SEGS = new Set(['recipes','recipe','blog','post','posts','cooking','recipe-ideas']);
     let recipeName = name;
     if (urlInName) {
@@ -176,11 +244,9 @@ function parseTrello(board) {
         const parts = parsed.pathname.replace(/\/$/, '').split('/').filter(p => p && !SKIP_SEGS.has(p.toLowerCase()));
         if (parts.length) {
           let slug = parts[parts.length - 1].split('#')[0];
-          // If last segment looks like a hash ID (short, no hyphens), use previous segment
           if (/^[a-z0-9]{6,12}$/.test(slug) && !slug.includes('-') && parts.length > 1) {
             slug = parts[parts.length - 2].split('#')[0];
           }
-          // Remove trailing -recipe/-recipes suffix
           slug = slug.replace(/-(recipes?)$/, '');
           recipeName = slug.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
         }
@@ -188,15 +254,13 @@ function parseTrello(board) {
     }
 
     // Ingredients / instructions
-    let ingredients = [];
-    let instructions = [];
+    let ingredients = '';
+    let instructions = '';
     if (desc) {
       const halfIdx = Math.floor(desc.split('\n').length / 2);
       const lines = desc.split('\n');
-      const ingLines = lines.slice(0, halfIdx).join('\n');
-      const insLines = lines.slice(halfIdx).join('\n');
-      ingredients = parseIngredients(ingLines);
-      instructions = parseInstructions(insLines);
+      ingredients = parseIngredients(lines.slice(0, halfIdx).join('\n'));
+      instructions = parseInstructions(lines.slice(halfIdx).join('\n'));
     }
 
     recipes.push({
@@ -223,20 +287,23 @@ document.getElementById('jsonFile').addEventListener('change', async (e) => {
     const text = await file.text();
     const board = JSON.parse(text);
     parsedRecipes = parseTrello(board);
+    saveCache(parsedRecipes);
+    showCacheNotice({ ts: Date.now(), recipes: parsedRecipes });
     document.getElementById('recipeCount').textContent = `Found ${parsedRecipes.length} recipes ready to import.`;
     document.getElementById('recipeCount').style.color = '#16a34a';
-    updateImportBtn();
+    updateButtons();
   } catch(err) {
     document.getElementById('recipeCount').textContent = 'Error reading file: ' + err.message;
     document.getElementById('recipeCount').style.color = '#dc2626';
   }
 });
 
-function updateImportBtn() {
+function updateButtons() {
   document.getElementById('importBtn').disabled = !(currentUser && parsedRecipes.length > 0);
+  document.getElementById('patchBtn').disabled = !currentUser;
 }
 
-// --- Import ---
+// --- Logging ---
 function log(msg) {
   const el = document.getElementById('log');
   el.style.display = 'block';
@@ -244,6 +311,13 @@ function log(msg) {
   el.scrollTop = el.scrollHeight;
 }
 
+function logClear() {
+  const el = document.getElementById('log');
+  el.style.display = 'none';
+  el.textContent = '';
+}
+
+// --- Microlink image fetch ---
 async function fetchOgImage(url) {
   try {
     const res = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`);
@@ -255,21 +329,23 @@ async function fetchOgImage(url) {
   return '';
 }
 
+// --- Import ---
 window.runImport = async function() {
   const btn = document.getElementById('importBtn');
   const doFetchImages = document.getElementById('fetchImages').checked;
-  btn.disabled = true; btn.textContent = 'Importing…';
-  log(`Importing ${parsedRecipes.length} recipes…\n`);
+  btn.disabled = true; btn.textContent = 'Importingâ¦';
+  logClear();
+  log(`Importing ${parsedRecipes.length} recipesâ¦\n`);
 
   // Fetch missing images via Microlink
   const needsImage = parsedRecipes.filter(r => !r.imageUrl && r.sourceUrl);
   if (doFetchImages && needsImage.length > 0) {
-    log(`Fetching cover images for ${needsImage.length} URL-based recipes…`);
+    log(`Fetching cover images for ${needsImage.length} URL-based recipesâ¦`);
     for (const recipe of needsImage) {
       const img = await fetchOgImage(recipe.sourceUrl);
       if (img) {
         recipe.imageUrl = img;
-        log(`  🖼 ${recipe.name}`);
+        log(`  ð¼ ${recipe.name}`);
       }
     }
     log('');
@@ -288,18 +364,64 @@ window.runImport = async function() {
     try {
       await batch.commit();
       done += chunk.length;
-      log(`✓ ${done}/${parsedRecipes.length} imported…`);
+      log(`â ${done}/${parsedRecipes.length} importedâ¦`);
     } catch(e) {
       errors += chunk.length;
-      log(`✗ Batch error: ${e.message}`);
+      log(`â Batch error: ${e.message}`);
     }
   }
 
-  log(`\n🎉 Done! ${done} imported, ${errors} errors.`);
-  btn.textContent = 'Done ✓';
+  log(`\nð Done! ${done} imported, ${errors} errors.`);
+  btn.textContent = 'Done â';
   if (done > 0) {
     document.getElementById('status').insertAdjacentHTML('beforeend',
-      '<p class="done">✅ Open <a href="https://audobot.github.io/whisk/" target="_blank">Whisk</a> and refresh to see your recipes!</p>');
+      '<p class="done">â Open <a href="https://audobot.github.io/whisk/" target="_blank">Whisk</a> and refresh to see your recipes!</p>');
+  }
+};
+
+// --- Patch missing images from Firestore ---
+window.patchImages = async function() {
+  const btn = document.getElementById('patchBtn');
+  btn.disabled = true; btn.textContent = 'Scanningâ¦';
+  logClear();
+  log('Reading your recipes from Firestoreâ¦');
+
+  try {
+    const snap = await getDocs(collection(db, 'users', currentUser.uid, 'recipes'));
+    const needsPatch = [];
+    snap.forEach(d => {
+      const r = d.data();
+      if (!r.imageUrl && r.sourceUrl) needsPatch.push({ id: d.id, name: r.name, sourceUrl: r.sourceUrl });
+    });
+
+    log(`Found ${snap.size} recipes total, ${needsPatch.length} missing images.\n`);
+
+    if (needsPatch.length === 0) {
+      log('â Nothing to patch!');
+      btn.disabled = false; btn.textContent = 'ð¼ Fetch Missing Images';
+      return;
+    }
+
+    let patched = 0;
+    for (const r of needsPatch) {
+      btn.textContent = `Patching ${patched}/${needsPatch.length}â¦`;
+      const img = await fetchOgImage(r.sourceUrl);
+      if (img) {
+        await updateDoc(doc(db, 'users', currentUser.uid, 'recipes', r.id), { imageUrl: img });
+        patched++;
+        log(`  ð¼ ${r.name}`);
+      } else {
+        log(`  â No image found: ${r.name}`);
+      }
+    }
+
+    log(`\nð Done! ${patched}/${needsPatch.length} images patched.`);
+    btn.textContent = 'Done â';
+    document.getElementById('status').insertAdjacentHTML('beforeend',
+      '<p class="done">â Refresh <a href="https://audobot.github.io/whisk/" target="_blank">Whisk</a> to see updated images!</p>');
+  } catch(e) {
+    log(`â Error: ${e.message}`);
+    btn.disabled = false; btn.textContent = 'ð¼ Fetch Missing Images';
   }
 };
 </script>
