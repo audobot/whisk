@@ -476,16 +476,17 @@
 
                 <div class="form-group">
                     <label for="recipeCategory">Category</label>
-                    <select id="recipeCategory" style="width:100%;padding:0.875rem 1rem;border:1px solid var(--light-grey);border-radius:8px;font-family:var(--font-body);font-size:1rem;background:var(--white);color:var(--black);transition:all 0.3s var(--ease-smooth);">
-                        <option value="">Uncategorised</option>
-                        <option value="Breakfast">Breakfast</option>
-                        <option value="Lunch">Lunch</option>
-                        <option value="Dinner">Dinner</option>
-                        <option value="Dessert">Dessert</option>
-                        <option value="Snacks">Snacks</option>
-                        <option value="Drinks">Drinks</option>
-                        <option value="Other">Other</option>
-                    </select>
+                    <input type="text" id="recipeCategory" list="categoryOptions" placeholder="e.g. Dinner, Baking…" autocomplete="off" style="width:100%">
+                    <datalist id="categoryOptions">
+                        <option value="Uncategorised">
+                        <option value="Breakfast">
+                        <option value="Lunch">
+                        <option value="Dinner">
+                        <option value="Dessert">
+                        <option value="Snacks">
+                        <option value="Drinks">
+                        <option value="Other">
+                    </datalist>
                 </div>
 
                 <div style="display:flex;gap:1rem;margin-top:2rem;">
