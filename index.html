@@ -207,7 +207,7 @@
             font-family: var(--font-display); font-size: 1.5rem; font-weight: 400;
             color: var(--black); margin-bottom: 0.75rem; letter-spacing: 0.02em;
         }
-        .recipe-meta { display: flex; gap: 1.5rem; font-size: 0.9rem; color: var(--mid-grey); margin-bottom: 1rem; flex-wrap: wrap; }
+        .recipe-meta { display: flex; gap: 0.6rem; font-size: 0.85rem; color: var(--mid-grey); flex-wrap: wrap; align-items: center; }
         .recipe-meta span { display: flex; align-items: center; gap: 0.5rem; }
 
         /* Source link badge on card */
@@ -241,7 +241,8 @@
             margin-bottom: 0.5rem;
         }
 
-        .recipe-actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
+        .recipe-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 0.75rem; }
+        .recipe-actions { display: flex; gap: 0.5rem; }
         .btn-small { padding: 0.5rem 1rem; font-size: 0.85rem; border-radius: 8px; }
 
         .modal {
@@ -865,13 +866,15 @@
                         <a class="source-badge" href="${esc(recipe.sourceUrl)}" target="_blank" rel="noopener"
                            onclick="event.stopPropagation()">🔗 Source</a>
                     ` : ''}
-                    <div class="recipe-meta">
-                        ${recipe.prepTime ? `<span>⏱️ ${esc(recipe.prepTime)} min</span>` : ''}
-                        ${recipe.servings ? `<span>🍽️ ${esc(recipe.servings)} servings</span>` : ''}
-                    </div>
-                    <div class="recipe-actions" onclick="event.stopPropagation()">
-                        <button class="btn btn-secondary btn-small" onclick="editRecipe('${esc(recipe.id)}')">Edit</button>
-                        <button class="btn btn-text btn-small" onclick="deleteRecipe('${esc(recipe.id)}')">Delete</button>
+                    <div class="recipe-footer" onclick="event.stopPropagation()">
+                        <div class="recipe-meta">
+                            ${recipe.prepTime ? `<span>⏱️ ${esc(recipe.prepTime)} min</span>` : ''}
+                            ${recipe.servings ? `<span>🍽️ ${esc(recipe.servings)}</span>` : ''}
+                        </div>
+                        <div class="recipe-actions">
+                            <button class="btn btn-secondary btn-small" onclick="editRecipe('${esc(recipe.id)}')">Edit</button>
+                            <button class="btn btn-text btn-small" onclick="deleteRecipe('${esc(recipe.id)}')">Delete</button>
+                        </div>
                     </div>
                 </div>
             `).join('');
