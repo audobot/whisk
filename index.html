@@ -351,6 +351,30 @@
         #categoryTagInput{border:none!important;outline:none!important;box-shadow:none!important;padding:0.1rem 0.2rem!important;min-width:140px;flex:1;background:transparent;font-size:0.9rem;font-family:inherit;}
 .btn-danger{background:transparent;color:#c0392b;border:1.5px solid #c0392b;padding:0.6rem 1.1rem;border-radius:8px;font-weight:600;cursor:pointer;transition:background 0.15s,color 0.15s;white-space:nowrap;}
 .btn-danger:hover{background:#c0392b;color:var(--white);}
+        
+        /* View toggle */
+        .view-toggle { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0; flex-wrap: wrap; }
+        .view-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem 0.7rem; cursor: pointer; font-size: 1rem; color: var(--text-secondary); transition: all 0.2s; }
+        .view-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .view-btn:hover:not(.active) { border-color: var(--primary); color: var(--primary); }
+        .cat-mgr-btn { margin-left: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem 0.8rem; cursor: pointer; font-size: 0.85rem; color: var(--text-secondary); }
+        .cat-mgr-btn:hover { border-color: var(--primary); color: var(--primary); }
+        /* List view */
+        .recipes-list { display: flex; flex-direction: column; gap: 0.5rem; }
+        .list-row { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; background: var(--surface); border-radius: 8px; cursor: pointer; border: 1px solid var(--border); transition: border-color 0.2s; }
+        .list-row:hover { border-color: var(--primary); }
+        .list-row-name { font-weight: 500; color: var(--text-primary); }
+        .list-row-meta { font-size: 0.8rem; color: var(--text-secondary); text-align: right; }
+        /* Grouped view */
+        .recipe-group { margin-bottom: 2rem; }
+        .group-heading { font-size: 1rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid var(--border); }
+        /* Category manager modal */
+        .cat-mgr-row { display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 0; border-bottom: 1px solid var(--border); }
+        .cat-mgr-row:last-child { border-bottom: none; }
+        .cat-mgr-actions { display: flex; gap: 0.5rem; }
+        .cat-mgr-actions button { padding: 0.3rem 0.7rem; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; font-size: 0.8rem; color: var(--text-primary); }
+        .cat-mgr-actions button.danger { color: #e53e3e; border-color: #e53e3e; }
+        .cat-mgr-actions button:hover { opacity: 0.75; }
         </style>
 </head>
 <body>
@@ -406,7 +430,7 @@
             <!-- Controls -->
             <div class="controls">
                 <div class="search-box">
-                    <input type="text" id="searchInput" placeholder="Search recipes...">
+                    <input type="text" id="searchInput" placeholder="Search recipes..." oninput="handleSearch()">
                 </div>
                 <button class="btn btn-primary" id="addRecipeBtn" onclick="if(window.__initCategoryTagInput)window.__initCategoryTagInput([])">+ Add Recipe</button>
             </div>
@@ -427,6 +451,12 @@
 
             <!-- Category filter chips -->
             <div class="category-filters" id="categoryFilters"></div>
+            <div class="view-toggle">
+                <button class="view-btn active" data-view="grid" onclick="setView('grid')" title="Grid view">⊞ Grid</button>
+                <button class="view-btn" data-view="list" onclick="setView('list')" title="List view">☰ List</button>
+                <button class="view-btn" data-view="group" onclick="setView('group')" title="Group by category">⊟ Group</button>
+                <button class="cat-mgr-btn" onclick="openCategoryManager()">✎ Categories</button>
+            </div>
 
             <div class="recipes-grid" id="recipesGrid"></div>
 
@@ -544,6 +574,8 @@
         let deferredPrompt;
         let unsubscribeRecipes = null;
         let activeCategory = 'All';
+        let selectedCategories = new Set();
+        let currentView = 'grid';
 
         const CATEGORIES = ['All', 'Breakfast', 'Lunch', 'Dinner', 'Dessert', 'Snacks', 'Drinks', 'Other'];
         const DEFAULT_CATEGORIES = ['Breakfast','Lunch','Dinner','Dessert','Snacks','Drinks','Other','Uncategorised'];
@@ -724,21 +756,78 @@
             const defaultCats = DEFAULT_CATEGORIES.filter(c => usedCats.has(c));
             const visible = ['All', ...customCats, ...defaultCats];
             container.innerHTML = visible.map(cat => `
-                <button class="cat-chip${activeCategory === cat ? ' active' : ''}"
+                <button class="cat-chip${(cat === 'All' ? selectedCategories.size === 0 : selectedCategories.has(cat)) ? ' active' : ''}"
                         onclick="setCategory('${cat}')">${cat}</button>
             `).join('');
         }
 
         window.setCategory = function(cat) {
-            activeCategory = cat;
+            if (cat === 'All') {
+                selectedCategories.clear();
+            } else {
+                if (selectedCategories.has(cat)) selectedCategories.delete(cat);
+                else selectedCategories.add(cat);
+            }
             renderCategoryChips();
             applyFilters();
         };
 
+        window.setView = function(v) {
+            currentView = v;
+            document.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === v));
+            applyFilters();
+        };
+
+        window.openCategoryManager = function() {
+            const allCats = [...new Set(recipes.flatMap(r => r.categories || (r.category ? [r.category] : [])))].sort();
+            const list = document.getElementById('catMgrList');
+            list.innerHTML = allCats.map(cat => {
+                const count = recipes.filter(r => (r.categories || (r.category ? [r.category] : [])).includes(cat)).length;
+                return '<div class="cat-mgr-row"><span>' + cat + ' <small>(' + count + ' recipes)</small></span><div class="cat-mgr-actions"><button onclick="promptRenameCategory(\'' + cat.replace(/'/g, "\\'") + '\')">Rename</button><button onclick="promptDeleteCategory(\'' + cat.replace(/'/g, "\\'") + '\')" class="danger">Delete</button></div></div>';
+            }).join('');
+            document.getElementById('categoryManagerModal').style.display = 'flex';
+        };
+
+        window.closeCategoryManager = function() {
+            document.getElementById('categoryManagerModal').style.display = 'none';
+        };
+
+        window.promptRenameCategory = function(oldName) {
+            const newName = prompt('Rename "' + oldName + '" to:', oldName);
+            if (!newName || newName.trim() === oldName) return;
+            const trimmed = newName.trim();
+            recipes.forEach(r => {
+                const cats = r.categories || (r.category ? [r.category] : []);
+                if (cats.includes(oldName)) {
+                    r.categories = cats.map(c => c === oldName ? trimmed : c);
+                    saveRecipeToFirestore(r);
+                }
+            });
+            if (selectedCategories.has(oldName)) { selectedCategories.delete(oldName); selectedCategories.add(trimmed); }
+            renderCategoryChips();
+            applyFilters();
+            openCategoryManager();
+        };
+
+        window.promptDeleteCategory = function(catName) {
+            if (!confirm('Remove category "' + catName + '" from all recipes?')) return;
+            recipes.forEach(r => {
+                const cats = r.categories || (r.category ? [r.category] : []);
+                if (cats.includes(catName)) {
+                    r.categories = cats.filter(c => c !== catName);
+                    saveRecipeToFirestore(r);
+                }
+            });
+            selectedCategories.delete(catName);
+            renderCategoryChips();
+            applyFilters();
+            openCategoryManager();
+        };
+
         function applyFilters() {
             const q = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
-            let filtered = activeCategory === 'All' ? recipes
-                : recipes.filter(r => (r.categories || (r.category ? [r.category] : [])).includes(activeCategory));
+            let filtered = selectedCategories.size === 0 ? recipes
+                : recipes.filter(r => { const rc = r.categories || (r.category ? [r.category] : []); return rc.some(c => selectedCategories.has(c)); });
             if (q) filtered = filtered.filter(r =>
                 r.name.toLowerCase().includes(q) ||
                 (r.ingredients || '').toLowerCase().includes(q)
@@ -759,6 +848,8 @@
             }
             grid.style.display = 'grid';
             emptyState.style.display = 'none';
+            grid.className = 'recipes-grid';
+            if (currentView !== 'grid') { renderAltView(grid, toRender, currentView); return; }
 
             grid.innerHTML = toRender.map(recipe => `
                 <div class="recipe-card" onclick="viewRecipe('${esc(recipe.id)}')">
@@ -785,6 +876,41 @@
                     </div>
                 </div>
             `).join('');
+        }
+
+        function renderAltView(grid, items, view) {
+            if (view === 'list') {
+                grid.className = 'recipes-list';
+                grid.innerHTML = items.map(r => {
+                    const cats = (r.categories || (r.category ? [r.category] : [])).join(', ') || 'Uncategorised';
+                    return '<div class="list-row" onclick="viewRecipe(\'' + r.id + '\')">' +
+                        '<div class="list-row-name">' + (r.name || '') + '</div>' +
+                        '<div class="list-row-meta">' + cats + (r.prepTime ? ' · ' + r.prepTime : '') + '</div>' +
+                        '</div>';
+                }).join('');
+            } else {
+                grid.className = 'recipes-grouped';
+                const catMap = new Map();
+                items.forEach(r => {
+                    const cats = r.categories || (r.category ? [r.category] : []);
+                    (cats.length ? cats : ['Uncategorised']).forEach(c => {
+                        if (!catMap.has(c)) catMap.set(c, []);
+                        catMap.get(c).push(r);
+                    });
+                });
+                let html = '';
+                [...catMap.keys()].sort().forEach(cat => {
+                    html += '<div class="recipe-group"><h3 class="group-heading">' + cat + '</h3><div class="recipes-grid">' +
+                        catMap.get(cat).map(r =>
+                            '<div class="recipe-card" onclick="viewRecipe(\'' + r.id + '\')">' +
+                            '<div class="recipe-card-content"><h3>' + (r.name || '') + '</h3>' +
+                            (r.prepTime ? '<p class="recipe-meta">⏱ ' + r.prepTime + '</p>' : '') +
+                            '</div></div>'
+                        ).join('') +
+                        '</div></div>';
+                });
+                grid.innerHTML = html;
+            }
         }
 
         window.viewRecipe = function(id) {
@@ -1150,5 +1276,15 @@ function closeRecipeModal(){
   if (delBtn) delBtn.style.display = 'none';
 }
 </script>
+
+    <div id="categoryManagerModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:2000;align-items:center;justify-content:center;">
+        <div class="modal-content" style="max-width:500px;width:90%;max-height:80vh;overflow-y:auto;">
+            <div class="modal-header">
+                <h2>Manage Categories</h2>
+                <button class="close-btn" onclick="closeCategoryManager()">✕</button>
+            </div>
+            <div id="catMgrList" style="padding:1rem 0;"></div>
+        </div>
+    </div>
 </body>
 </html>
