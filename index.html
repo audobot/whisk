@@ -834,7 +834,7 @@
             let filtered = selectedCategories.size === 0 ? recipes
                 : recipes.filter(r => { const rc = r.categories || (r.category ? [r.category] : []); return rc.some(c => selectedCategories.has(c)); });
             if (q) filtered = filtered.filter(r =>
-                r.name.toLowerCase().includes(q) ||
+                (r.name || '').toLowerCase().includes(q) ||
                 (r.ingredients || '').toLowerCase().includes(q)
             );
             renderRecipes(filtered);
