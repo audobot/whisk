@@ -430,7 +430,7 @@
             <!-- Controls -->
             <div class="controls">
                 <div class="search-box">
-                    <input type="text" id="searchInput" placeholder="Search recipes..." oninput="handleSearch()">
+                    <input type="text" id="searchInput" placeholder="Search recipes...">
                 </div>
                 <button class="btn btn-primary" id="addRecipeBtn" onclick="if(window.__initCategoryTagInput)window.__initCategoryTagInput([])">+ Add Recipe</button>
             </div>
@@ -683,6 +683,11 @@
             const form = document.getElementById('recipeForm');
             if (!form || form._bound) return;
             form._bound = true;
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput && !searchInput._bound) {
+                searchInput._bound = true;
+                searchInput.addEventListener('input', applyFilters);
+            }
   const addBtn = document.getElementById('addRecipeBtn');
   if (addBtn && !addBtn._bound) {
     addBtn._bound = true;
