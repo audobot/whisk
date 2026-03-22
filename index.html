@@ -491,6 +491,10 @@
                         <input type="number" id="prepTime" min="0" placeholder="20">
                     </div>
                     <div class="form-group">
+                        <label for="cookTime">Cook Time (minutes)</label>
+                        <input type="number" id="cookTime" min="0" placeholder="30">
+                    </div>
+                    <div class="form-group">
                         <label for="servings">Servings</label>
                         <input type="number" id="servings" min="1" placeholder="4">
                     </div>
@@ -724,6 +728,7 @@
                     id,
                     name: document.getElementById('recipeName').value.trim(),
                     prepTime: document.getElementById('prepTime').value,
+                    cookTime: document.getElementById('cookTime').value,
                     servings: document.getElementById('servings').value,
                     ingredients: document.getElementById('ingredients').value,
                     instructions: document.getElementById('instructions').value,
@@ -874,7 +879,7 @@
                     ` : ''}
                     <div class="recipe-footer" onclick="event.stopPropagation()">
                         <div class="recipe-meta">
-                            ${recipe.prepTime ? `<span>⏱️ ${esc(recipe.prepTime)} min</span>` : ''}
+                            ${(recipe.prepTime || recipe.cookTime) ? `<span>⏱️ ${formatTime(recipe.prepTime, recipe.cookTime)}</span>` : ''}
                             ${recipe.servings ? `<span>🍽️ ${esc(recipe.servings)}</span>` : ''}
                         </div>
                         <div class="recipe-actions">
@@ -893,7 +898,7 @@
                     const cats = (r.categories || (r.category ? [r.category] : [])).join(', ') || 'Uncategorised';
                     return '<div class="list-row" onclick="viewRecipe(\'' + r.id + '\')">' +
                         '<div class="list-row-name">' + (r.name || '') + '</div>' +
-                        '<div class="list-row-meta">' + cats + (r.prepTime ? ' · ' + r.prepTime : '') + '</div>' +
+                        '<div class="list-row-meta">' + cats + ((r.prepTime || r.cookTime) ? ' · ' + formatTime(r.prepTime, r.cookTime) : '') + '</div>' +
                         '</div>';
                 }).join('');
             } else {
@@ -912,7 +917,7 @@
                         catMap.get(cat).map(r =>
                             '<div class="recipe-card" onclick="viewRecipe(\'' + r.id + '\')">' +
                             '<div class="recipe-card-content"><h3>' + (r.name || '') + '</h3>' +
-                            (r.prepTime ? '<p class="recipe-meta">⏱ ' + r.prepTime + '</p>' : '') +
+                            ((r.prepTime || r.cookTime) ? '<p class="recipe-meta">⏱ ' + formatTime(r.prepTime, r.cookTime) + '</p>' : '') +
                             '</div></div>'
                         ).join('') +
                         '</div></div>';
@@ -933,9 +938,9 @@
                          onerror="this.parentElement.style.display='none'">
                 </div>`;
             }
-            if (recipe.prepTime || recipe.servings) {
+            if (recipe.prepTime || recipe.cookTime || recipe.servings) {
                 html += '<div class="recipe-meta" style="margin-bottom:1.5rem;">';
-                if (recipe.prepTime) html += `<span>⏱️ ${esc(recipe.prepTime)} minutes</span>`;
+                if (recipe.prepTime || recipe.cookTime) html += `<span>⏱️ ${formatTime(recipe.prepTime, recipe.cookTime)}</span>`;
                 if (recipe.servings) html += `<span>🍽️ ${esc(recipe.servings)} servings</span>`;
                 html += '</div>';
             }
@@ -962,6 +967,7 @@
             document.getElementById('recipeSourceUrl').value = recipe.sourceUrl || '';
             document.getElementById('recipeName').value = recipe.name;
             document.getElementById('prepTime').value = recipe.prepTime || '';
+            document.getElementById('cookTime').value = recipe.cookTime || '';
             document.getElementById('servings').value = recipe.servings || '';
             document.getElementById('ingredients').value = recipe.ingredients;
             document.getElementById('instructions').value = recipe.instructions;
@@ -1020,6 +1026,7 @@
                 document.getElementById('recipeSourceUrl').value = url;
                 document.getElementById('recipeName').value = recipe.name || '';
                 document.getElementById('prepTime').value = recipe.prepTime || '';
+                document.getElementById('cookTime').value = recipe.cookTime || '';
                 document.getElementById('servings').value = recipe.servings || '';
                 document.getElementById('ingredients').value = recipe.ingredients || '';
                 document.getElementById('instructions').value = recipe.instructions || '';
@@ -1233,6 +1240,14 @@
             const m = iso.match(/P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?/);
             if (!m) return 0;
             return (parseInt(m[1] || 0) * 24 * 60) + (parseInt(m[2] || 0) * 60) + parseInt(m[3] || 0);
+        }
+
+        function formatTime(prepMins, cookMins) {
+            const total = (parseInt(prepMins) || 0) + (parseInt(cookMins) || 0);
+            if (!total) return '';
+            const h = Math.floor(total / 60);
+            const m = total % 60;
+            return h > 0 ? (m > 0 ? h + 'h' + m + 'm' : h + 'h') : m + 'm';
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────
