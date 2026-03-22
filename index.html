@@ -430,8 +430,8 @@
             <!-- Controls -->
             <div class="controls">
                 <div class="search-box" style="display:flex;align-items:center;gap:0.5rem;">
-                    <input type="text" id="searchInput" placeholder="Search recipes..." style="flex:1;margin:0;" onkeydown="if(event.key==='Enter')window.runSearch()">
-                    <button class="btn btn-secondary" onclick="window.runSearch()" style="white-space:nowrap;">Search</button>
+                    <input type="text" id="searchInput" placeholder="Search recipes..." style="flex:1;width:auto;margin:0;" onkeydown="if(event.key==='Enter')window.runSearch()">
+                    <button class="btn btn-secondary" onclick="window.runSearch()" style="white-space:nowrap;flex-shrink:0;">Search</button>
                 </div>
                 <button class="btn btn-primary" id="addRecipeBtn" onclick="if(window.__initCategoryTagInput)window.__initCategoryTagInput([])">+ Add Recipe</button>
             </div>
