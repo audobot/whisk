@@ -1241,6 +1241,9 @@
                 .replace(/'/g, '&#39;');
         }
 
+        // ── Search ────────────────────────────────────────────────────────────
+        document.getElementById('searchInput').addEventListener('input', applyFilters);
+
         // ── Modals & PWA ──────────────────────────────────────────────────────
         document.getElementById('recipeModal').addEventListener('click', (e) => {
             if (e.target.id === 'recipeModal') closeRecipeModal();
