@@ -434,6 +434,8 @@
                     <button class="btn btn-secondary" onclick="window.runSearch()" style="white-space:nowrap;flex-shrink:0;">Search</button>
                 </div>
                 <button class="btn btn-primary" id="addRecipeBtn" onclick="if(window.__initCategoryTagInput)window.__initCategoryTagInput([])">+ Add Recipe</button>
+                <button class="btn btn-secondary" id="scanPhotoBtn" onclick="openPhotoScanner()" title="Scan recipe from photo">&#128247; Photo</button>
+                <input type="file" id="photoRecipeInput" accept="image/*" style="display:none" onchange="handlePhotoSelected(this)">
             </div>
 
             <!-- URL Import row -->
@@ -441,7 +443,7 @@
                 <div style="flex:1;">
                     <div class="import-url-input">
                         <input type="url" id="importUrlInput"
-                               placeholder="Paste a recipe URL — just the recipe, zero ads ✨">
+                               placeholder="Paste a recipe URL â just the recipe, zero ads â¨">
                         <button class="btn btn-secondary" id="importFetchBtn" onclick="importFromUrl()">Import URL</button>
                     </div>
                     <div class="import-status-wrap">
@@ -453,10 +455,10 @@
             <!-- Category filter chips -->
             <div class="category-filters" id="categoryFilters"></div>
             <div class="view-toggle">
-                <button class="view-btn active" data-view="grid" onclick="setView('grid')" title="Grid view">⊞ Grid</button>
-                <button class="view-btn" data-view="list" onclick="setView('list')" title="List view">☰ List</button>
-                <button class="view-btn" data-view="group" onclick="setView('group')" title="Group by category">⊟ Group</button>
-                <button class="cat-mgr-btn" onclick="openCategoryManager()">✎ Categories</button>
+                <button class="view-btn active" data-view="grid" onclick="setView('grid')" title="Grid view">â Grid</button>
+                <button class="view-btn" data-view="list" onclick="setView('list')" title="List view">â° List</button>
+                <button class="view-btn" data-view="group" onclick="setView('group')" title="Group by category">â Group</button>
+                <button class="cat-mgr-btn" onclick="openCategoryManager()">â Categories</button>
             </div>
 
             <div class="recipes-grid" id="recipesGrid"></div>
@@ -520,7 +522,7 @@
 
                 <div class="form-group">
                     <label for="recipeCategory">Category</label>
-                    <div id="categoryTagContainer" class="category-tag-container"><input type="text" id="categoryTagInput" list="categoryOptions" placeholder="Add category, press Enter…" autocomplete="off"></div>
+                    <div id="categoryTagContainer" class="category-tag-container"><input type="text" id="categoryTagInput" list="categoryOptions" placeholder="Add category, press Enterâ¦" autocomplete="off"></div>
                     <datalist id="categoryOptions"></datalist>
                 </div>
 
@@ -543,7 +545,7 @@
             <div class="recipe-detail" id="recipeDetail"></div>
             <div style="display:flex;gap:1rem;margin-top:2rem;">
                 <button class="btn btn-secondary" style="flex:1;" onclick="editFromView()">Edit</button>
-                <button class="btn btn-secondary" id="reimportBtn" style="flex:1;" onclick="window.reimportRecipe()">↻ Re-import</button>
+                <button class="btn btn-secondary" id="reimportBtn" style="flex:1;" onclick="window.reimportRecipe()">â» Re-import</button>
                 <button class="btn btn-primary" onclick="closeViewModal()">Close</button>
             </div>
         </div>
@@ -586,7 +588,7 @@
         const CATEGORIES = ['All', 'Breakfast', 'Lunch', 'Dinner', 'Dessert', 'Snacks', 'Drinks', 'Other'];
         const DEFAULT_CATEGORIES = ['Breakfast','Lunch','Dinner','Dessert','Snacks','Drinks','Other','Uncategorised'];
 
-        // ── Auth ──────────────────────────────────────────────────────────────
+        // ââ Auth ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
         window.signInWithGoogle = async function() {
             const provider = new GoogleAuthProvider();
             try {
@@ -627,7 +629,7 @@
             }
         });
 
-        // ── Firestore ─────────────────────────────────────────────────────────
+        // ââ Firestore âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
         function subscribeToRecipes(uid) {
             if (unsubscribeRecipes) unsubscribeRecipes();
             const recipesRef = collection(db, 'users', uid, 'recipes');
@@ -723,7 +725,7 @@
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const btn = form.querySelector('button[type=submit]');
-                if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+                if (btn) { btn.disabled = true; btn.textContent = 'Savingâ¦'; }
                 const id = document.getElementById('recipeId').value || crypto.randomUUID();
                 const recipe = {
                     id,
@@ -847,7 +849,7 @@
             renderRecipes(filtered);
         }
 
-        // ── Render ────────────────────────────────────────────────────────────
+        // ââ Render ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
         function renderRecipes(filteredRecipes = null) {
             const grid = document.getElementById('recipesGrid');
             const emptyState = document.getElementById('emptyState');
@@ -876,12 +878,12 @@
                     <h3>${esc(recipe.name)}</h3>
                     ${recipe.sourceUrl ? `
                         <a class="source-badge" href="${esc(recipe.sourceUrl)}" target="_blank" rel="noopener"
-                           onclick="event.stopPropagation()">🔗 Source</a>
+                           onclick="event.stopPropagation()">ð Source</a>
                     ` : ''}
                     <div class="recipe-footer" onclick="event.stopPropagation()">
                         <div class="recipe-meta">
-                            ${(recipe.prepTime || recipe.cookTime) ? `<span>⏱️ ${formatTime(recipe.prepTime, recipe.cookTime)}</span>` : ''}
-                            ${recipe.servings ? `<span>🍽️ ${esc(recipe.servings)}</span>` : ''}
+                            ${(recipe.prepTime || recipe.cookTime) ? `<span>â±ï¸ ${formatTime(recipe.prepTime, recipe.cookTime)}</span>` : ''}
+                            ${recipe.servings ? `<span>ð½ï¸ ${esc(recipe.servings)}</span>` : ''}
                         </div>
                         <div class="recipe-actions">
                             <button class="btn btn-secondary btn-small" onclick="editRecipe('${esc(recipe.id)}')">Edit</button>
@@ -899,7 +901,7 @@
                     const cats = (r.categories || (r.category ? [r.category] : [])).join(', ') || 'Uncategorised';
                     return '<div class="list-row" onclick="viewRecipe(\'' + r.id + '\')">' +
                         '<div class="list-row-name">' + (r.name || '') + '</div>' +
-                        '<div class="list-row-meta">' + cats + ((r.prepTime || r.cookTime) ? ' · ' + formatTime(r.prepTime, r.cookTime) : '') + '</div>' +
+                        '<div class="list-row-meta">' + cats + ((r.prepTime || r.cookTime) ? ' Â· ' + formatTime(r.prepTime, r.cookTime) : '') + '</div>' +
                         '</div>';
                 }).join('');
             } else {
@@ -918,7 +920,7 @@
                         catMap.get(cat).map(r =>
                             '<div class="recipe-card" onclick="viewRecipe(\'' + r.id + '\')">' +
                             '<div class="recipe-card-content"><h3>' + (r.name || '') + '</h3>' +
-                            ((r.prepTime || r.cookTime) ? '<p class="recipe-meta">⏱ ' + formatTime(r.prepTime, r.cookTime) + '</p>' : '') +
+                            ((r.prepTime || r.cookTime) ? '<p class="recipe-meta">â± ' + formatTime(r.prepTime, r.cookTime) + '</p>' : '') +
                             '</div></div>'
                         ).join('') +
                         '</div></div>';
@@ -941,8 +943,8 @@
             }
             if (recipe.prepTime || recipe.cookTime || recipe.servings) {
                 html += '<div class="recipe-meta" style="margin-bottom:1.5rem;">';
-                if (recipe.prepTime || recipe.cookTime) html += `<span>⏱️ ${formatTime(recipe.prepTime, recipe.cookTime)}</span>`;
-                if (recipe.servings) html += `<span>🍽️ ${esc(recipe.servings)} servings</span>`;
+                if (recipe.prepTime || recipe.cookTime) html += `<span>â±ï¸ ${formatTime(recipe.prepTime, recipe.cookTime)}</span>`;
+                if (recipe.servings) html += `<span>ð½ï¸ ${esc(recipe.servings)} servings</span>`;
                 html += '</div>';
             }
             if (recipe.sourceUrl) {
@@ -966,7 +968,7 @@
             if (!url) return;
             const btn = document.getElementById('reimportBtn');
             btn.disabled = true;
-            btn.textContent = '↻ Importing…';
+            btn.textContent = 'â» Importingâ¦';
             try {
                 const imported = await fetchRecipeFromUrl(url);
                 if (!imported) { alert("Couldn't extract recipe data from that page."); return; }
@@ -989,7 +991,7 @@
                 alert('Re-import failed: ' + err.message);
             } finally {
                 btn.disabled = false;
-                btn.textContent = '↻ Re-import';
+                btn.textContent = 'â» Re-import';
             }
         };
 
@@ -1032,7 +1034,7 @@
             applyFilters();
         }
 
-        // ── URL Import ────────────────────────────────────────────────────────
+        // ââ URL Import ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
         window.importFromUrl = async function() {
             const urlInput = document.getElementById('importUrlInput');
             const url = urlInput.value.trim();
@@ -1076,7 +1078,7 @@
             } catch (err) {
                 console.error('Import error:', err);
                 const msg = err.message === 'All proxies failed'
-                    ? 'All fetch attempts failed — the site may aggressively block scrapers. Try copying the URL from the recipe page directly.'
+                    ? 'All fetch attempts failed â the site may aggressively block scrapers. Try copying the URL from the recipe page directly.'
                     : 'Something went wrong fetching that URL. Check it\'s a valid recipe page.';
                 statusEl.textContent = msg;
                 statusEl.className = 'import-status error';
@@ -1086,7 +1088,7 @@
         };
 
         async function fetchRecipeFromUrl(url) {
-            // Multiple proxies tried in sequence ℔ different sites block different ones
+            // Multiple proxies tried in sequence â different sites block different ones
             const proxies = [
                 {
                     build: u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
@@ -1127,7 +1129,7 @@
                 } catch (e) { /* skip malformed */ }
             }
 
-            // Fallback: microdata ℔ e.g. itemtype="https://schema.org/Recipe"
+            // Fallback: microdata â e.g. itemtype="https://schema.org/Recipe"
             const microdataEl = doc.querySelector('[itemtype*="Recipe"]');
             if (microdataEl) return parseMicrodataRecipe(microdataEl, doc);
 
@@ -1175,7 +1177,7 @@
                 if (og) imageUrl = og.getAttribute('content') || '';
             }
 
-            // Prep time: ISO 8601 → minutes
+            // Prep time: ISO 8601 â minutes
             let prepTime = '';
             const rawTime = schema.prepTime || schema.totalTime || schema.cookTime || '';
             if (rawTime) {
@@ -1219,7 +1221,7 @@
                             const t = (step.text || step.name || '').replace(/<[^>]+>/g, '').trim();
                             if (t) steps.push(t);
                         } else if (step['@type'] === 'HowToSection') {
-                            if (step.name) steps.push('— ' + step.name + ' —');
+                            if (step.name) steps.push('â ' + step.name + ' â');
                             if (Array.isArray(step.itemListElement)) {
                                 step.itemListElement.forEach(s => {
                                     const t = (s.text || s.name || '').replace(/<[^>]+>/g, '').trim();
@@ -1271,7 +1273,7 @@
         }
 
         function parseIsoDuration(iso) {
-            // PT20M → 20, PT1H30M → 90, P1DT2H → 1560
+            // PT20M â 20, PT1H30M â 90, P1DT2H â 1560
             const m = iso.match(/P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?/);
             if (!m) return 0;
             return (parseInt(m[1] || 0) * 24 * 60) + (parseInt(m[2] || 0) * 60) + parseInt(m[3] || 0);
@@ -1285,7 +1287,7 @@
             return h > 0 ? (m > 0 ? h + 'h' + m + 'm' : h + 'h') : m + 'm';
         }
 
-        // ── Helpers ───────────────────────────────────────────────────────────
+        // ââ Helpers âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
         function esc(str) {
             if (!str) return '';
             return String(str)
@@ -1296,10 +1298,10 @@
                 .replace(/'/g, '&#39;');
         }
 
-        // ── Search ────────────────────────────────────────────────────────────
+        // ââ Search ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
         document.getElementById('searchInput').addEventListener('input', applyFilters);
 
-        // ── Modals & PWA ──────────────────────────────────────────────────────
+        // ââ Modals & PWA ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
         document.getElementById('recipeModal').addEventListener('click', (e) => {
             if (e.target.id === 'recipeModal') closeRecipeModal();
         });
@@ -1354,10 +1356,104 @@ function runSearch(){
         <div class="modal-content" style="max-width:500px;width:90%;max-height:80vh;overflow-y:auto;">
             <div class="modal-header">
                 <h2>Manage Categories</h2>
-                <button class="close-btn" onclick="closeCategoryManager()">✕</button>
+                <button class="close-btn" onclick="closeCategoryManager()">â</button>
             </div>
             <div id="catMgrList" style="padding:1rem 0;"></div>
         </div>
     </div>
+
+<!-- ===== PHOTO RECIPE SCANNER ===== -->
+<div id="photoScanModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;padding:32px;max-width:460px;width:90%;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+    <button onclick="closePhotoModal()" style="position:absolute;top:14px;right:18px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:#888;">&#x2715;</button>
+    <h2 style="margin:0 0 6px;font-size:1.2rem;">&#128247; Scan Recipe Photo</h2>
+    <p style="color:#888;font-size:.9rem;margin:0 0 20px;">Take a photo of a cookbook page, printed recipe, or screenshot — Claude will read it and create a recipe card automatically.</p>
+    <div id="psmStatus">
+      <button class="btn btn-primary" onclick="document.getElementById('photoRecipeInput').click()" style="width:100%;">Choose Photo</button>
+    </div>
+    <div id="psmProgress" style="display:none;text-align:center;padding:12px 0;">
+      <div style="font-size:2.5rem;" id="psmSpinner">&#9203;</div>
+      <p style="color:#888;margin-top:12px;">Reading your recipe&#8230;</p>
+    </div>
+    <div id="psmApiKey" style="display:none;">
+      <p style="color:#666;margin:0 0 10px;font-size:.9rem;">This uses Anthropic AI to read recipe photos. Your API key is saved in your browser only.</p>
+      <input type="password" id="psmKeyInput" placeholder="sk-ant-..." style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;margin-bottom:8px;font-size:.9rem;box-sizing:border-box;">
+      <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:#999;font-size:.82rem;display:block;margin-bottom:16px;">Get your free API key at console.anthropic.com &#8594;</a>
+      <button class="btn btn-primary" onclick="psmSaveKeyAndScan()" style="width:100%;">Save &amp; Scan Photo</button>
+    </div>
+    <div id="psmError" style="display:none;color:#c0392b;font-size:.9rem;margin-top:12px;"></div>
+  </div>
+</div>
+<style>@keyframes psmspin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}#psmSpinner{display:inline-block;}</style>
+<script>
+(function(){
+  var pendingFile=null;
+  window.openPhotoScanner=function(){
+    var m=document.getElementById('photoScanModal');
+    m.style.display='flex';
+    psmShow('status');
+    pendingFile=null;
+  };
+  window.closePhotoModal=function(){
+    document.getElementById('photoScanModal').style.display='none';
+  };
+  window.handlePhotoSelected=function(input){
+    var file=input.files[0];
+    if(!file)return;
+    input.value='';
+    var key=localStorage.getItem('whisk_anthropic_key');
+    if(!key){pendingFile=file;psmShow('apikey');return;}
+    psmScanFile(file,key);
+  };
+  window.psmSaveKeyAndScan=function(){
+    var key=document.getElementById('psmKeyInput').value.trim();
+    if(!key)return;
+    localStorage.setItem('whisk_anthropic_key',key);
+    if(pendingFile)psmScanFile(pendingFile,key);
+  };
+  function psmShow(s){
+    document.getElementById('psmStatus').style.display=s==='status'?'block':'none';
+    document.getElementById('psmProgress').style.display=s==='progress'?'block':'none';
+    document.getElementById('psmApiKey').style.display=s==='apikey'?'block':'none';
+    document.getElementById('psmError').style.display='none';
+  }
+  async function psmScanFile(file,key){
+    psmShow('progress');
+    try{
+      var b64=await new Promise(function(res){var r=new FileReader();r.onload=function(e){res(e.target.result.split(',')[1]);};r.readAsDataURL(file);});
+      var resp=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:2048,messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:b64}},
+          {type:'text',text:'Extract this recipe into JSON with keys: name, ingredients (one per line, metric units: g/ml/C, 250ml per cup, 20ml per tbsp, 5ml per tsp), instructions (numbered steps, one per line), prepTime (e.g. "20 mins"), cookTime, servings. Return ONLY valid JSON.'}
+        ]}]})
+      });
+      if(resp.status===401){localStorage.removeItem('whisk_anthropic_key');document.getElementById('psmKeyInput').value='';psmShow('apikey');document.getElementById('psmError').style.display='block';document.getElementById('psmError').textContent='Invalid API key - please try again.';return;}
+      if(!resp.ok)throw new Error('API error '+resp.status);
+      var data=await resp.json();
+      var text=data.content[0].text;
+      var m=text.match(/\{[\s\S]*\}/);
+      if(!m)throw new Error('Could not read recipe from photo');
+      var recipe=JSON.parse(m[0]);
+      closePhotoModal();
+      document.getElementById('addRecipeBtn').click();
+      setTimeout(function(){
+        function sf(sel,val){var el=document.querySelector(sel);if(!el||!val)return;el.value=val;el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}
+        sf('#recipeName',recipe.name);
+        sf('#ingredients',recipe.ingredients);
+        sf('#instructions',recipe.instructions);
+        sf('#prepTime',recipe.prepTime);
+        sf('#cookTime',recipe.cookTime);
+        sf('#servings',recipe.servings);
+      },700);
+    }catch(e){
+      psmShow('status');
+      document.getElementById('psmError').style.display='block';
+      document.getElementById('psmError').textContent='Error: '+e.message;
+    }
+  }
+})();
+</script>
 </body>
 </html>
