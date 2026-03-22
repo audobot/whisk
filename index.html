@@ -1290,6 +1290,14 @@ function closeRecipeModal(){
   const delBtn = document.getElementById('deleteRecipeBtn');
   if (delBtn) delBtn.style.display = 'none';
 }
+function runSearch(){
+  var q = (document.getElementById('searchInput').value || '').toLowerCase().trim();
+  var cards = document.querySelectorAll('.recipe-card, .list-row');
+  cards.forEach(function(card){
+    var text = card.textContent.toLowerCase();
+    card.style.display = (!q || text.includes(q)) ? '' : 'none';
+  });
+}
 </script>
 
     <div id="categoryManagerModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:2000;align-items:center;justify-content:center;">
