@@ -21,7 +21,7 @@
         :root {
             --white: #ffffff;
             --off-white: #fafafa;
-            --light-grey: #e5e5e5;
+            --light-grey: #FFE0CC;
             --mid-grey: #999999;
             --dark-grey: #333333;
             --black: #000000;
@@ -179,9 +179,9 @@
             transform: translate(-50%, -50%); transition: width 0.6s, height 0.6s;
         }
         .btn:hover::before { width: 300px; height: 300px; }
-        .btn-primary { background: var(--deep-purple); color: var(--white); }
-        .btn-primary:hover { background: #440044; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(51,0,51,0.3); }
-        .btn-secondary { background: var(--light-grey); color: var(--black); }
+        .btn-primary { background: linear-gradient(135deg, #FF7040, #E83060); color: var(--white); }
+        .btn-primary:hover { background: linear-gradient(135deg, #E85020, #C02050); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(232,60,80,0.35); }
+        .btn-secondary { background: #FFF0E4; color: var(--dark-grey); border: 1px solid #FFD0AA; }
         .btn-secondary:hover { background: var(--mid-grey); color: var(--white); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         .btn-text { background: transparent; color: var(--mid-grey); padding: 0.5rem 1rem; text-decoration: underline; text-underline-offset: 4px; }
         .btn-text:hover { color: var(--black); }
