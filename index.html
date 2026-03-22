@@ -430,7 +430,8 @@
             <!-- Controls -->
             <div class="controls">
                 <div class="search-box">
-                    <input type="text" id="searchInput" placeholder="Search recipes...">
+                    <input type="text" id="searchInput" placeholder="Search recipes..." onkeydown="if(event.key==='Enter')window.runSearch()">
+                    <button class="btn btn-secondary" onclick="window.runSearch()" style="margin-left:0.5rem;">Search</button>
                 </div>
                 <button class="btn btn-primary" id="addRecipeBtn" onclick="if(window.__initCategoryTagInput)window.__initCategoryTagInput([])">+ Add Recipe</button>
             </div>
@@ -983,6 +984,10 @@
         };
 
         window.handleSearch = function() {
+            applyFilters();
+        }
+
+        window.runSearch = function() {
             applyFilters();
         }
 
