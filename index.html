@@ -543,7 +543,7 @@
             <div class="recipe-detail" id="recipeDetail"></div>
             <div style="display:flex;gap:1rem;margin-top:2rem;">
                 <button class="btn btn-secondary" style="flex:1;" onclick="editFromView()">Edit</button>
-                <button class="btn btn-secondary" id="reimportBtn" style="flex:1;display:none;" onclick="window.reimportRecipe()">↻ Re-import</button>
+                <button class="btn btn-secondary" id="reimportBtn" style="flex:1;" onclick="window.reimportRecipe()">↻ Re-import</button>
                 <button class="btn btn-primary" onclick="closeViewModal()">Close</button>
             </div>
         </div>
@@ -954,7 +954,6 @@
             html += `<h3>Instructions</h3><p>${esc(recipe.instructions)}</p>`;
             document.getElementById('recipeDetail').innerHTML = html;
             document.getElementById('viewModal').classList.add('active');
-            document.getElementById('reimportBtn').style.display = recipe.sourceUrl ? '' : 'none';
             editingRecipeId = id;
         };
 
@@ -962,19 +961,21 @@
 
         window.reimportRecipe = async function() {
             const recipe = recipes.find(r => r.id === editingRecipeId);
-            if (!recipe || !recipe.sourceUrl) return;
+            if (!recipe) return;
+            const url = recipe.sourceUrl || prompt('Paste the recipe URL to import from:');
+            if (!url) return;
             const btn = document.getElementById('reimportBtn');
             btn.disabled = true;
             btn.textContent = '↻ Importing…';
             try {
-                const imported = await fetchRecipeFromUrl(recipe.sourceUrl);
+                const imported = await fetchRecipeFromUrl(url);
                 if (!imported) { alert("Couldn't extract recipe data from that page."); return; }
                 closeViewModal();
                 editingRecipeId = recipe.id;
                 document.getElementById('modalTitle').textContent = 'Review Re-imported Recipe';
                 document.getElementById('recipeForm').reset();
                 document.getElementById('recipeId').value = recipe.id;
-                document.getElementById('recipeSourceUrl').value = recipe.sourceUrl;
+                document.getElementById('recipeSourceUrl').value = url;
                 document.getElementById('recipeName').value = imported.name || recipe.name || '';
                 document.getElementById('prepTime').value = imported.prepTime || recipe.prepTime || '';
                 document.getElementById('cookTime').value = recipe.cookTime || '';
