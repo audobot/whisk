@@ -977,7 +977,7 @@
             catch (err) { alert('Error deleting recipe: ' + err.message); }
         };
 
-        function handleSearch() {
+        window.handleSearch = function() {
             applyFilters();
         }
 
