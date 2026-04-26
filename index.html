@@ -653,7 +653,7 @@
         }
 
         // ── Auto-categorise ───────────────────────────────────────────────────
-        async function runAutoCategorise() {
+        window.runAutoCategorise = async function() {
             const key = localStorage.getItem('whisk_anthropic_key');
             if (!key) {
                 const entered = prompt('Enter your Anthropic API key to use auto-categorise:');
