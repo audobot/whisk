@@ -1128,13 +1128,13 @@
                 try {
                     const json = JSON.parse(script.textContent);
                     const schemaRecipe = findRecipeInJsonLd(json);
-                    if (schemaRecipe) return parseSchemaRecipe(schemaRecipe, doc);
+                    if (schemaRecipe) return parseSchemaRecipe(schemaRecipe, doc, url);
                 } catch (e) { /* skip malformed */ }
             }
 
             // Fallback: microdata ℔ e.g. itemtype="https://schema.org/Recipe"
             const microdataEl = doc.querySelector('[itemtype*="Recipe"]');
-            if (microdataEl) return parseMicrodataRecipe(microdataEl, doc);
+            if (microdataEl) return parseMicrodataRecipe(microdataEl, doc, url);
 
             return null;
         }
@@ -1159,7 +1159,13 @@
             return null;
         }
 
-        function parseSchemaRecipe(schema, doc) {
+        function resolveUrl(url, base) {
+            if (!url || !base) return url;
+            if (url.startsWith('http://') || url.startsWith('https://')) return url;
+            try { return new URL(url, base).href; } catch (e) { return url; }
+        }
+
+        function parseSchemaRecipe(schema, doc, sourceUrl) {
             const name = schema.name || '';
 
             // Image: string | ImageObject | array thereof
@@ -1174,10 +1180,20 @@
                     imageUrl = schema.image.url || schema.image['@id'] || '';
                 }
             }
-            // Fallback: og:image
+            imageUrl = resolveUrl(imageUrl, sourceUrl);
+            // Fallback: thumbnailUrl
+            if (!imageUrl && schema.thumbnailUrl) {
+                const t = schema.thumbnailUrl;
+                imageUrl = resolveUrl(typeof t === 'string' ? t : (t?.url || ''), sourceUrl);
+            }
+            // Fallback: og:image then twitter:image
             if (!imageUrl) {
                 const og = doc.querySelector('meta[property="og:image"]');
                 if (og) imageUrl = og.getAttribute('content') || '';
+            }
+            if (!imageUrl) {
+                const tw = doc.querySelector('meta[name="twitter:image"]');
+                if (tw) imageUrl = tw.getAttribute('content') || '';
             }
 
             // Prep time: ISO 8601 → minutes
@@ -1240,7 +1256,7 @@
             return { name, imageUrl, prepTime, servings, ingredients, instructions };
         }
 
-        function parseMicrodataRecipe(el, doc) {
+        function parseMicrodataRecipe(el, doc, sourceUrl) {
             const prop = (name) => {
                 const els = el.querySelectorAll(`[itemprop="${name}"]`);
                 if (!els.length) return '';
@@ -1256,9 +1272,14 @@
             let imageUrl = '';
             const imgEl = el.querySelector('[itemprop="image"]');
             if (imgEl) imageUrl = imgEl.getAttribute('src') || imgEl.getAttribute('content') || '';
+            imageUrl = resolveUrl(imageUrl, sourceUrl);
             if (!imageUrl) {
                 const og = doc.querySelector('meta[property="og:image"]');
                 if (og) imageUrl = og.getAttribute('content') || '';
+            }
+            if (!imageUrl) {
+                const tw = doc.querySelector('meta[name="twitter:image"]');
+                if (tw) imageUrl = tw.getAttribute('content') || '';
             }
 
             let prepTime = '';
