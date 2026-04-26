@@ -204,7 +204,20 @@
 
         /* Category filter chips */
         .category-filters {
-            display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem;
+            display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem;
+        }
+        .category-dropdown {
+            display: none; width: 100%; padding: 0.6rem 0.75rem; margin-bottom: 1rem;
+            border: 1px solid var(--light-grey); border-radius: 0; background: var(--white);
+            font-family: var(--font-body); font-size: 0.875rem; color: var(--black);
+            cursor: pointer; appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23999' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 0.75rem center;
+        }
+        .category-dropdown:focus { outline: none; border-color: var(--black); }
+        @media (max-width: 640px) {
+            .category-filters { display: none; }
+            .category-dropdown { display: block; }
         }
         .cat-chip {
             padding: 0.35rem 0.9rem; border-radius: 20px;
@@ -438,6 +451,7 @@
 
             <!-- Category filter chips -->
             <div class="category-filters" id="categoryFilters"></div>
+            <select id="categoryDropdown" class="category-dropdown" onchange="setCategory(this.value)"></select>
             <div class="view-toggle">
                 <button class="view-btn active" data-view="grid" onclick="setView('grid')" title="Grid view">⊞ Grid</button>
                 <button class="view-btn" data-view="list" onclick="setView('list')" title="List view">☰ List</button>
@@ -817,9 +831,10 @@
 
         function renderCategoryChips() {
             const container = document.getElementById('categoryFilters');
+            const dropdown = document.getElementById('categoryDropdown');
             if (!container) return;
             const usedCats = new Set(recipes.flatMap(r => r.categories || (r.category ? [r.category] : [])));
-            if (usedCats.size === 0) { container.innerHTML = ''; return; }
+            if (usedCats.size === 0) { container.innerHTML = ''; if (dropdown) dropdown.innerHTML = ''; return; }
             const customCats = [...usedCats].filter(c => !DEFAULT_CATEGORIES.includes(c)).sort();
             const defaultCats = DEFAULT_CATEGORIES.filter(c => usedCats.has(c));
             const visible = ['All', ...customCats, ...defaultCats];
@@ -827,6 +842,12 @@
                 <button class="cat-chip${(cat === 'All' ? selectedCategories.size === 0 : selectedCategories.has(cat)) ? ' active' : ''}"
                         onclick="setCategory('${cat}')">${cat}</button>
             `).join('');
+            if (dropdown) {
+                const active = selectedCategories.size === 1 ? [...selectedCategories][0] : 'All';
+                dropdown.innerHTML = visible.map(cat =>
+                    `<option value="${cat}"${cat === active ? ' selected' : ''}>${cat}</option>`
+                ).join('');
+            }
         }
 
         window.setCategory = function(cat) {
