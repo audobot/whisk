@@ -459,6 +459,7 @@
                 <button class="view-btn" data-view="list" onclick="setView('list')" title="List view">☰ List</button>
                 <button class="view-btn" data-view="group" onclick="setView('group')" title="Group by category">⊟ Group</button>
                 <button class="cat-mgr-btn" onclick="openCategoryManager()">✎ Categories</button>
+                <button class="cat-mgr-btn" id="autoCatBtn" onclick="runAutoCategorise()">✦ Auto-categorise</button>
             </div>
 
             <div class="recipes-grid" id="recipesGrid"></div>
@@ -648,6 +649,50 @@
                         await updateDoc(doc(db, 'users', uid, 'recipes', recipe.id), { imageUrl });
                     }
                 } catch (e) { /* skip this recipe silently */ }
+            }
+        }
+
+        // ── Auto-categorise ───────────────────────────────────────────────────
+        async function runAutoCategorise() {
+            const key = localStorage.getItem('whisk_anthropic_key');
+            if (!key) {
+                const entered = prompt('Enter your Anthropic API key to use auto-categorise:');
+                if (!entered) return;
+                localStorage.setItem('whisk_anthropic_key', entered.trim());
+            }
+            const apiKey = localStorage.getItem('whisk_anthropic_key');
+            const uncategorised = recipes.filter(r => !r.categories?.length && !r.category);
+            if (!uncategorised.length) { alert('All recipes already have categories!'); return; }
+
+            const btn = document.getElementById('autoCatBtn');
+            btn.textContent = '⏳ Categorising…';
+            btn.disabled = true;
+
+            const nameList = uncategorised.map((r, i) => `${i + 1}. ${r.name}`).join('\n');
+            const prompt_text = `Assign 1-2 categories to each recipe from this list only: Breakfast, Lunch, Dinner, Dessert, Snacks, Drinks, Other.\n\nRecipes:\n${nameList}\n\nReturn ONLY a valid JSON array like: [{"index":1,"categories":["Dinner"]},...]`;
+
+            try {
+                const res = await fetch('https://api.anthropic.com/v1/messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+                    body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 2048, messages: [{ role: 'user', content: prompt_text }] })
+                });
+                if (res.status === 401) { localStorage.removeItem('whisk_anthropic_key'); alert('Invalid API key — please try again.'); return; }
+                const data = await res.json();
+                const raw = data.content[0].text.trim();
+                const json = JSON.parse(raw.match(/\[[\s\S]*\]/)[0]);
+
+                for (const item of json) {
+                    const recipe = uncategorised[item.index - 1];
+                    if (!recipe || !item.categories?.length) continue;
+                    await updateDoc(doc(db, 'users', currentUser.uid, 'recipes', recipe.id), { categories: item.categories, category: item.categories[0] });
+                }
+                btn.textContent = '✦ Auto-categorise';
+            } catch (e) {
+                alert('Something went wrong — please try again.');
+                btn.textContent = '✦ Auto-categorise';
+            } finally {
+                btn.disabled = false;
             }
         }
 
