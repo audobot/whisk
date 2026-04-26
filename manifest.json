@@ -1,6 +1,6 @@
 {
-  "name": "Whisk",
-  "short_name": "Whisk",
+  "name": "whisk",
+  "short_name": "whisk",
   "description": "Your personal recipe collection",
   "start_url": "/whisk/",
   "display": "standalone",
