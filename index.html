@@ -682,15 +682,18 @@
                 const raw = data.content[0].text.trim();
                 const json = JSON.parse(raw.match(/\[[\s\S]*\]/)[0]);
 
+                let count = 0;
                 for (const item of json) {
                     const recipe = uncategorised[item.index - 1];
                     if (!recipe || !item.categories?.length) continue;
                     await updateDoc(doc(db, 'users', currentUser.uid, 'recipes', recipe.id), { categories: item.categories, category: item.categories[0] });
+                    count++;
                 }
-                btn.textContent = '✦ Auto-categorise';
+                btn.textContent = `✓ Done! ${count} categorised`;
+                setTimeout(() => { btn.textContent = '✦ Auto-categorise'; }, 3000);
             } catch (e) {
-                alert('Something went wrong — please try again.');
-                btn.textContent = '✦ Auto-categorise';
+                btn.textContent = '✗ Something went wrong';
+                setTimeout(() => { btn.textContent = '✦ Auto-categorise'; }, 3000);
             } finally {
                 btn.disabled = false;
             }
