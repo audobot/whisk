@@ -1123,20 +1123,32 @@
             const doc = parser.parseFromString(html, 'text/html');
 
             // Try all JSON-LD script blocks (use *=  so variant types like 'application/ld+json; charset=utf-8' still match)
+            let recipe = null;
             const scripts = doc.querySelectorAll('script[type*="ld+json"]');
             for (const script of scripts) {
                 try {
                     const json = JSON.parse(script.textContent);
                     const schemaRecipe = findRecipeInJsonLd(json);
-                    if (schemaRecipe) return parseSchemaRecipe(schemaRecipe, doc, url);
+                    if (schemaRecipe) { recipe = parseSchemaRecipe(schemaRecipe, doc, url); break; }
                 } catch (e) { /* skip malformed */ }
             }
 
             // Fallback: microdata ℔ e.g. itemtype="https://schema.org/Recipe"
-            const microdataEl = doc.querySelector('[itemtype*="Recipe"]');
-            if (microdataEl) return parseMicrodataRecipe(microdataEl, doc, url);
+            if (!recipe) {
+                const microdataEl = doc.querySelector('[itemtype*="Recipe"]');
+                if (microdataEl) recipe = parseMicrodataRecipe(microdataEl, doc, url);
+            }
 
-            return null;
+            // If we got a recipe but still no image, ask Microlink to grab one from the source URL
+            if (recipe && !recipe.imageUrl) {
+                try {
+                    const mlRes = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`);
+                    const mlData = await mlRes.json();
+                    recipe.imageUrl = mlData.data?.image?.url || mlData.data?.screenshot?.url || '';
+                } catch (e) { /* silent — image just stays empty */ }
+            }
+
+            return recipe;
         }
 
         function findRecipeInJsonLd(json) {
