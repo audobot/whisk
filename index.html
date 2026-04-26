@@ -564,7 +564,7 @@
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
         import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { getFirestore, collection, doc, setDoc, deleteDoc, updateDoc, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
         const firebaseConfig = {
             apiKey: "AIzaSyAEoriQJjqu8rBEN0gNQPY0HEc57hJxng8",
@@ -580,6 +580,7 @@
         const db = getFirestore(app);
 
         let currentUser = null;
+        let imagesPatchedThisSession = false;
         let recipes = [];
         let editingRecipeId = null;
         let deferredPrompt;
@@ -624,6 +625,7 @@
                 }
                 subscribeToRecipes(user.uid);
                 setupEventListeners();
+                patchMissingImagesInBackground(user.uid);
             } else {
                 currentUser = null;
                 document.getElementById('auth-screen').style.display = 'flex';
@@ -631,6 +633,26 @@
                 recipes = [];
             }
         });
+
+        // ── Background image patcher ──────────────────────────────────────────
+        async function patchMissingImagesInBackground(uid) {
+            if (imagesPatchedThisSession) return;
+            imagesPatchedThisSession = true;
+            // Small delay so the main recipe load finishes first
+            await new Promise(r => setTimeout(r, 3000));
+            const needsPatch = recipes.filter(r => r.sourceUrl && !r.imageUrl);
+            if (!needsPatch.length) return;
+            for (const recipe of needsPatch) {
+                try {
+                    const res = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(recipe.sourceUrl)}`);
+                    const data = await res.json();
+                    const imageUrl = data.data?.image?.url || data.data?.screenshot?.url || '';
+                    if (imageUrl) {
+                        await updateDoc(doc(db, 'users', uid, 'recipes', recipe.id), { imageUrl });
+                    }
+                } catch (e) { /* skip this recipe silently */ }
+            }
+        }
 
         // ── Firestore ─────────────────────────────────────────────────────────
         function subscribeToRecipes(uid) {
