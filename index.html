@@ -967,7 +967,8 @@
         function renderAltView(grid, items, view) {
             if (view === 'list') {
                 grid.className = 'recipes-list';
-                grid.innerHTML = items.map(r => {
+                const sorted = [...items].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+                grid.innerHTML = sorted.map(r => {
                     const cats = (r.categories || (r.category ? [r.category] : [])).join(', ') || 'Uncategorised';
                     return '<div class="list-row" onclick="viewRecipe(\'' + r.id + '\')">' +
                         '<div class="list-row-name">' + (r.name || '') + '</div>' +
